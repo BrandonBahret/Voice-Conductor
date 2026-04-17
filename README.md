@@ -1,17 +1,17 @@
 # voice-synth
 
-`voice-synth` is an importable Python text-to-speech package for generating voice lines and routing them to speakers, a virtual microphone, or both. It is built for Windows-friendly voice chat workflows.
+A Python package for generating and routing synthesized voice lines. Supports output to speakers or virtual microphones.
 
-The main entry point is `TTSManager`.
+**Entry point:** `TTSManager`
 
 ## Features
 
-- Provider fallback across ElevenLabs, Kokoro, Azure Speech, Windows Speech.
+- Provider fallback across ElevenLabs, Kokoro, Azure Speech, Windows Speech, and the built-in demo provider.
 - SQLite phrase caching so repeated lines do not need to be synthesized again.
 - Named playback routes for speakers and virtual mic devices.
 - Background playback tasks for non-blocking speech.
-- Playback lifecycle hooks.
-- JSON configuration with provider credentials, default voices, route settings, and cache paths.
+- Playback lifecycle hooks for push-to-talk workflows.
+- JSON/JSONC configuration for provider credentials, default voices, route settings, and cache paths.
 
 ## Requirements
 
@@ -19,22 +19,30 @@ The main entry point is `TTSManager`.
 - Optional audio playback support via `sounddevice`.
 - Optional provider dependencies and credentials depending on the backend you want to use.
 
-Install the package for local development:
+## Installation
 
-```powershell
-pip install -e .
+Install the package:
+
+```bash
+pip install voice-synth
 ```
 
 Install audio playback support:
 
-```powershell
-pip install -e .[audio]
+```bash
+pip install "voice-synth[audio]"
 ```
 
 Install audio playback plus Kokoro support:
 
-```powershell
-pip install -e .[audio,kokoro]
+```bash
+pip install "voice-synth[audio,kokoro]"
+```
+
+For local development from a checkout:
+
+```bash
+pip install -e ".[audio,kokoro]"
 ```
 
 ## Quick Start
@@ -76,10 +84,14 @@ By default, `voice_synth` looks for one of these files in the current working di
 - `voice_synth.config.jsonc`
 - `voice_synth.config.json`
 
-Start from `voice_synth.config.example.jsonc`, then fill in only the providers and routes you use. 
-If one is not found, one will be automatically generated.
+If neither file exists, defaults are used. To create a config file you can edit, save the current settings:
 
+```python
+from voice_synth import load_settings
 
+settings = load_settings()
+settings.save_settings("voice_synth.config.jsonc")
+```
 
 Provider selection follows `voice_synth.provider_chain`. When `speak()` or `synthesize_voice()` does not specify a provider, the manager uses the first available provider in that chain.
 
@@ -121,11 +133,11 @@ Routes are named outputs. The default route names are:
 You can pass one route name or a list of route names:
 
 ```python
-tts.speak("Hello, World!", routes="speakers")
-tts.speak("Hello, World!", routes=["speakers", "mic"])
+tts.speak("Hello, world!", routes="speakers")
+tts.speak("Hello, world!", routes=["speakers", "mic"])
 ```
 
-Use `docs/mic-setup.md` for the Voicemeeter virtual microphone setup.
+The `mic` route resolves to an output device because virtual microphone tools such as VB-CABLE and VoiceMeeter expose playback endpoints that chat apps receive as microphone input. See `docs/mic-setup.md` for a virtual microphone setup guide.
 
 ## Cache
 
@@ -139,7 +151,7 @@ Synthesized phrases are cached in SQLite. Cache entries are keyed by:
 Useful cache methods:
 
 ```python
-tts.invalidate_synthesis_cache(text="Hello, World!")
+tts.invalidate_synthesis_cache(text="Hello, world!")
 tts.invalidate_synthesis_cache(provider="elevenlabs")
 tts.clear_synthesis_cache()
 ```
@@ -178,25 +190,28 @@ tts.speak(
 )
 ```
 
+## Documentation
+
+- `docs/general.md`: architecture, settings, providers, and shared types.
+- `docs/mic-setup.md`: virtual microphone setup and troubleshooting.
+- `examples/`: small runnable examples.
+
 ## Development
+
+Install the project locally:
+
+```bash
+pip install -e ".[audio,kokoro]"
+```
 
 Run tests:
 
-```powershell
+```bash
 pytest
 ```
 
 Run a focused test file:
 
-```powershell
+```bash
 pytest tests/test_manager.py
 ```
-
-Useful project files:
-
-- `voice_synth/manager.py`: high-level public orchestration.
-- `voice_synth/config.py`: JSONC settings loading and serialization.
-- `voice_synth/providers/`: provider adapters and registry.
-- `voice_synth/audio/`: device discovery, playback, and route resolution.
-- `voice_synth/phrase_cache.py`: SQLite-backed phrase cache.
-- `docs/mic-setup.md`: virtual microphone setup guide.

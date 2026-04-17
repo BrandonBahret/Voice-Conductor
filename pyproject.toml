@@ -28,6 +28,8 @@ package-dir = {"" = "."}
 
 [tool.setuptools.packages.find]
 where = ["."]
+include = ["voice_synth*"]
+exclude = ["tests*", "examples*"]
 
 [tool.pytest.ini_options]
 cache_dir = ".cache/pytest"
