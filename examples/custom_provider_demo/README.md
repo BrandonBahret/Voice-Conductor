@@ -54,7 +54,7 @@ The helper in `midi_to_ascii.py` converts Standard MIDI files into the same
 notation used by this demo:
 
 ```powershell
-python examples/custom_provider_demo/midi_to_ascii.py "M:\Downloads\Banjo-_Gruntilda's_Lair-_Banjos_Garden.mid" --output examples/custom_provider_demo/.runtime/banjo_song.py
+python examples/custom_provider_demo/midi_to_ascii.py path/to/song.mid --output examples/custom_provider_demo/.runtime/generated_song.py
 ```
 
 The output is a small Python `song = {...}` dictionary. Paste the tracks into
@@ -62,18 +62,18 @@ The output is a small Python `song = {...}` dictionary. Paste the tracks into
 pass each notation string to `manager.synthesize_voice(...)`.
 
 Dictionary keys are playable `tone` voices, not raw MIDI track labels. The
-converter maps labels like `Flöte`, `Trompete`, `Drums`, and `Banjo` to the
-closest demo voices and adds suffixes like `banjo_2` when several MIDI tracks
-land on the same voice recipe.
+converter maps common instrument labels to the closest demo voices and adds
+suffixes like `trumpet_2` when several MIDI tracks land on the same voice
+recipe.
 
 The converter carries MIDI note velocity, channel volume, and channel
 expression into `!volume` commands. That gives quieter parts a smaller
 contribution before `merge_tracks()` normalizes the final ensemble.
 
-When a MIDI contains Banjo tracks, the converter treats Banjo as the primary
-voice and writes non-Banjo tracks as secondary arrangement parts by applying a
-lower `^gain` prefix to their generated notation. The formatted output includes
-an `Arrangement: secondary` comment above those tracks, so the
+When a MIDI contains a clear lead instrument, the converter may treat that part
+as the primary voice and write the other tracks as secondary arrangement parts
+by applying a lower `^gain` prefix to their generated notation. The formatted
+output includes an `Arrangement: secondary` comment above those tracks, so the
 lead/accompaniment balance is visible before playback.
 
 By default, notes outside the playable `C3..B5` demo range are transposed by
@@ -84,7 +84,7 @@ notation.
 To export only part of a MIDI file, pass a 1-based inclusive measure range:
 
 ```powershell
-python examples/custom_provider_demo/midi_to_ascii.py "M:\Downloads\song.mid" --start-measure 9 --end-measure 16 --output examples/custom_provider_demo/.runtime/clip.py
+python examples/custom_provider_demo/midi_to_ascii.py path/to/song.mid --start-measure 9 --end-measure 16 --output examples/custom_provider_demo/.runtime/clip.py
 ```
 
 The converter assumes 4 beats per measure by default. Use `--beats-per-bar 3`
