@@ -1,0 +1,10 @@
+msgpack>=1.0.7
+numpy>=1.26
+
+[audio]
+sounddevice>=0.4.6
+
+[elevenlabs]
+
+[kokoro]
+kokoro>=0.9.4

@@ -1,0 +1,15 @@
+.artifacts/
+.pytest_cache/
+pytest-cache-files-*/
+__pycache__/
+*.py[cod]
+.cache/pytest/*
+!.cache/pytest/.gitkeep
+voice_synth_cache*.db
+voice_synth_cache*.db-journal
+voice_synth_cache*.db-x-*
+test_sqlite_*.db
+api-caches/
+voice_synth.config.jsonc
+todo.md
+voice_synth_cache.db

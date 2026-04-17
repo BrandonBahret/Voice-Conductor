@@ -1,0 +1,76 @@
+Metadata-Version: 2.4
+Name: voice-synth
+Version: 0.1.0
+Summary: Importable text-to-speech package with Windows audio routing support.
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: msgpack>=1.0.7
+Requires-Dist: numpy>=1.26
+Provides-Extra: audio
+Requires-Dist: sounddevice>=0.4.6; extra == "audio"
+Provides-Extra: elevenlabs
+Provides-Extra: kokoro
+Requires-Dist: kokoro>=0.9.4; extra == "kokoro"
+
+# voice-synth
+
+`voice-synth` is an importable Python package for generating text-to-speech audio and routing it to speakers, a virtual microphone device, or both.
+
+## Supported backends
+
+- Azure Speech: default cloud backend
+- ElevenLabs: optional cloud backend
+- Kokoro: optional local backend
+
+## Install
+
+```bash
+pip install -e .
+```
+
+If you want speaker or virtual-mic playback, install the audio extra too:
+
+```bash
+pip install -e .[audio]
+```
+
+Optional extras:
+
+```bash
+pip install -e .[audio,kokoro]
+```
+
+## Quick start
+
+```python
+from voice_synth import TTSManager
+
+tts = TTSManager()
+tts.speak(
+    "Team, rotate to B.",
+    target="speakers",
+)
+```
+
+Route to VB-CABLE:
+
+```python
+from voice_synth import TTSManager
+
+tts = TTSManager()
+tts.speak(
+    "This goes to the virtual mic.",
+    target="mic",
+    mic_device="CABLE Input",
+)
+```
+
+Repeated phrases are cached in a local `voice_synth_cache.db` file by default so repeat calls can reuse prior generations.
+
+## Local JSON config
+
+The package reads keys and defaults from `voice_synth.config.json` in the current working directory.
+
+Start from [`voice_synth.config.json`](M:\Documents\projects\python\Valorant\Chat\voice-synth\voice_synth.config.json) and edit the `replace_me` placeholders.
+
+Cached audio is stored in the configured `*.db` file as msgpack payloads. By default, the cache lives under your temp directory in `voice-synth\\voice_synth_cache.db`. Phrase keys are normalized to lowercase before lookup.

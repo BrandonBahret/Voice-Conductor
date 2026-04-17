@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "voice-synth"
+version = "0.1.0"
+description = "Importable text-to-speech package with Windows audio routing support."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "msgpack>=1.0.7",
+  "numpy>=1.26",
+  "pypercache>=0.1.4",
+]
+
+[project.optional-dependencies]
+audio = [
+  "sounddevice>=0.4.6",
+]
+elevenlabs = []
+kokoro = [
+  "kokoro>=0.9.4",
+]
+
+[tool.setuptools]
+package-dir = {"" = "."}
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.pytest.ini_options]
+cache_dir = ".cache/pytest"
+pythonpath = ["."]

@@ -1,0 +1,5 @@
+pip_tmp
+pytest-cache-files-4pv4a2tn
+pytest-cache-files-glgyre8n
+tests
+voice_synth
