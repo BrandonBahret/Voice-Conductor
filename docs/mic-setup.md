@@ -1,66 +1,75 @@
 # Virtual Mic Setup
 
-This guide routes synthesized speech into Valorant with Voicemeeter Banana or another virtual cable.
+This guide routes synthesized speech into any voice chat app with Voicemeeter Banana or another virtual cable.
 
 ## Device Direction
 
 `voice-synth` plays to Windows playback devices. Voicemeeter names can be confusing:
 
 - `VoiceMeeter ... Input` is the playback side that `voice-synth` should use.
-- `VoiceMeeter ... Output` and `VoiceMeeter Out B*` are recording devices that Valorant should use.
+- `VoiceMeeter ... Output` and `VoiceMeeter Out B*` are recording devices that your voice chat app should use.
 
 If you pass a recording-side Voicemeeter name such as `VoiceMeeter Aux Output` or `VoiceMeeter Out B2`, the device resolver maps it back to the matching playback-side `VoiceMeeter Aux Input` when possible.
 
-## Recommended Valorant Path
+## Recommended Virtual Mic Path
 
 - `voice-synth` route: `VoiceMeeter Aux Input (VB-Audio VoiceMeeter AUX VAIO)`
 - Voicemeeter bus: `B2`
-- Valorant input: `VoiceMeeter Aux Output (VB-Audio VoiceMeeter AUX VAIO)` or `VoiceMeeter Out B2`
+- voice chat input: `VoiceMeeter Aux Output (VB-Audio VoiceMeeter AUX VAIO)` or `VoiceMeeter Out B2`
 
 That keeps TTS on the AUX strip instead of mixing it with desktop audio on the main VAIO path.
 
 ## Install Audio Support
 
-```powershell
+```console
 pip install -e .[audio]
 ```
 
 Use this if you also want Kokoro:
 
-```powershell
+```console
 pip install -e .[audio,kokoro]
 ```
 
 ## Configure Routes
 
-Minimal config:
+Most setups do not need route config. `TTSManager()` creates two routes automatically:
 
-```json
-{
-  "voice_synth": {
-    "route_config": {
-      "routes": {
-        "speakers": {"device": "Speakers"},
-        "mic": {
-          "device": "VoiceMeeter Aux Input (VB-Audio VoiceMeeter AUX VAIO)",
-          "prefer_virtual_cable": true
-        }
-      }
-    }
-  }
-}
-```
+- `speakers`: your default Windows output device.
+- `mic`: the first available virtual cable output device.
 
-Default manager API:
+Start with the default manager API:
 
 ```python
 from voice_synth import TTSManager
 
 tts = TTSManager()
-tts.speak("Team, rotate to B.", routes="mic")
+tts.speak("Testing the virtual mic.", routes="mic")
 ```
 
-Named route API:
+Check what the package selected:
+
+```python
+from voice_synth import TTSManager
+
+tts = TTSManager()
+print(tts.settings.voice_synth.route_config.get("speakers").device)
+print(tts.settings.voice_synth.route_config.get("mic").device)
+```
+
+Route to speakers and mic:
+
+```python
+tts.speak("This plays in both places.", routes=["speakers", "mic"])
+```
+
+If Windows audio devices change while your app is running, refresh the selected routes:
+
+```python
+tts.refresh_audio_devices()
+```
+
+Only set devices explicitly if auto-detection chooses the wrong endpoint:
 
 ```python
 from voice_synth import RouteConfig, Settings, TTSManager, VoiceSynthSettings
@@ -71,13 +80,7 @@ routes = RouteConfig(
 )
 
 tts = TTSManager(settings=Settings(voice_synth=VoiceSynthSettings(route_config=routes)))
-tts.speak("Team, rotate to B.", routes=["mic"])
-```
-
-Route to speakers and mic:
-
-```python
-tts.speak("Flashing out.", routes=["speakers", "mic"])
+tts.speak("Testing the virtual mic.", routes="mic")
 ```
 
 ## Voicemeeter Banana
@@ -86,7 +89,7 @@ Recommended bus toggles:
 
 - Real mic strip: `B2` on if you want your real mic mixed with TTS.
 - `Voicemeeter AUX` strip for TTS: `B2` on.
-- Game or desktop strip on `Voicemeeter VAIO`: `B2` off.
+- Desktop audio strip on `Voicemeeter VAIO`: `B2` off.
 - `A1` on only for strips you want to hear locally.
 
 Recommended Windows defaults:
@@ -96,9 +99,9 @@ Recommended Windows defaults:
 
 Avoid making `VoiceMeeter Input` your global Windows output unless you intentionally route all desktop audio through Voicemeeter.
 
-## Valorant
+## Voice Chat App
 
-Set Valorant microphone input to:
+Set your voice chat app microphone input to:
 
 ```text
 VoiceMeeter Aux Output (VB-Audio VoiceMeeter AUX VAIO)
@@ -129,32 +132,30 @@ Look for the Voicemeeter AUX input device with `virtual=True`.
 
 ## Smoke Test
 
+Run these snippets from Python after installing the audio extra.
+
 Route speech to the virtual mic:
 
-```powershell
-@'
+```python
 from voice_synth import TTSManager
 
 tts = TTSManager()
-result = tts.speak("Team, rotate to B.", routes="mic")
+result = tts.speak("Testing the virtual mic.", routes="mic")
 print("routes:", result.routes)
 print("mic device:", result.devices["mic"].name)
-'@ | python -
 ```
 
 Named route:
 
-```powershell
-@'
+```python
 from voice_synth import TTSManager
 
 tts = TTSManager()
-audio = tts.synthesize_voice("Team, rotate to B.")
+audio = tts.synthesize_voice("Testing the virtual mic.")
 result = tts.route(audio, routes=["mic"])
 print("routes:", result.routes)
 for name, device in result.devices.items():
     print(name, device.name)
-'@ | python -
 ```
 
 ## Push To Talk Hooks
@@ -165,7 +166,7 @@ from voice_synth import PlaybackHooks, TTSManager
 tts = TTSManager()
 
 tts.speak(
-    "Swing on contact.",
+    "Push-to-talk test.",
     routes=["mic"],
     hooks=PlaybackHooks(
         on_audio_ready=press_push_to_talk,
@@ -180,7 +181,7 @@ tts.speak(
 
 Install the audio extra:
 
-```powershell
+```console
 pip install -e .[audio]
 ```
 
@@ -192,10 +193,10 @@ Install or enable Voicemeeter or VB-CABLE, then rerun the device listing script.
 
 Copy the exact visible playback device name from `tts.list_output_devices()`.
 
-Valorant hears desktop audio
+`Voice chat hears desktop audio`
 
-Make sure the desktop/game strip is not routed to `B2`. Keep `B2` on for the TTS AUX strip and optionally your real mic strip.
+Make sure the desktop audio strip is not routed to `B2`. Keep `B2` on for the TTS AUX strip and optionally your real mic strip.
 
-Valorant hears nothing
+`Voice chat hears nothing`
 
-Check that `voice-synth` plays to the AUX input, the AUX strip routes to `B2`, and Valorant listens on the AUX output or `Out B2`.
+Check that `voice-synth` plays to the AUX input, the AUX strip routes to `B2`, and your voice chat app listens on the AUX output or `Out B2`.
