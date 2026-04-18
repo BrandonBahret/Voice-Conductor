@@ -1,10 +1,10 @@
-"""Intermediate example: add and use a custom voice_synth provider.
+"""Intermediate example: add and use a custom voice_conductor provider.
 
 Run from the repository root after installing the package in editable mode:
 
     python examples/custom_provider_demo/custom_provider_demo.py
 
-This entry point now runs the richer ASCII song demo in ``ascii_song_demo.py``.
+This entry point now runs the richer ASCII song demo in ``main.py``.
 That provider exposes a small ensemble of synthesized instrument voices, writes
 stem tracks plus a merged WAV, then routes the merged song to the speaker route.
 """
@@ -26,20 +26,20 @@ if str(REPO_ROOT) not in sys.path:
 if str(EXAMPLE_DIR) not in sys.path:
     sys.path.insert(0, str(EXAMPLE_DIR))
 
-from voice_synth import (
+from voice_conductor import (
     CacheSettings,
     ProviderSettings,
     Settings,
     SynthesizedAudio,
     TTSManager,
     VoiceInfo,
-    VoiceSynthSettings,
+    VoiceConductorSettings,
     register_provider,
     register_provider_config,
     unregister_provider,
     unregister_provider_config,
 )
-from voice_synth.providers import TTSProvider
+from voice_conductor.providers import TTSProvider
 
 
 PROVIDER_NAME = "tone"
@@ -109,7 +109,7 @@ class ToneProvider(TTSProvider):
         ]
 
     def synthesize(self, text: str, *, voice: str | None = None) -> SynthesizedAudio:
-        # Providers return normalized float32 samples. voice_synth handles
+        # Providers return normalized float32 samples. voice_conductor handles
         # phrase caching, routing, and WAV/PCM export from this shared type.
         selected_voice = self._normalize_voice(voice or self.default_voice())
         sample_rate = int(self.config.sample_rate)
@@ -163,7 +163,7 @@ def build_manager() -> TTSManager:
     register_provider(PROVIDER_NAME, ToneProvider)
 
     settings = Settings(
-        voice_synth=VoiceSynthSettings(
+        voice_conductor=VoiceConductorSettings(
             provider_chain=[PROVIDER_NAME],
             cache=CacheSettings(root=EXAMPLE_DIR / ".runtime"),
         ),
@@ -180,7 +180,7 @@ def build_manager() -> TTSManager:
     return TTSManager(settings=settings)
 
 
-from ascii_song_demo import (  # noqa: E402
+from main import (  # noqa: E402
     NOTE_CHARS,
     ToneProvider,
     ToneProviderSettings,

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from itertools import repeat
 from pathlib import Path
 import re
 import sys
@@ -13,20 +14,22 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from voice_synth import (
+from voice_conductor import (
     CacheSettings,
     ProviderSettings,
     Settings,
     SynthesizedAudio,
     TTSManager,
     VoiceInfo,
-    VoiceSynthSettings,
+    VoiceConductorSettings,
     register_provider,
     register_provider_config,
     unregister_provider,
     unregister_provider_config,
 )
-from voice_synth.providers import TTSProvider
+from voice_conductor.providers import TTSProvider
+
+from song import song
 
 
 EXAMPLE_DIR = Path(__file__).resolve().parent
@@ -79,6 +82,15 @@ class ToneProviderSettings:
     master_volume: float = 0.65
 
 
+@dataclass(frozen=True, slots=True)
+class WrittenTrack:
+    """One synthesized stem and the WAV file written for it."""
+
+    voice_name: str
+    audio: SynthesizedAudio
+    target: Path
+
+
 class ToneProvider(TTSProvider):
     """Tiny provider that converts ASCII notation into deterministic music."""
 
@@ -86,6 +98,11 @@ class ToneProvider(TTSProvider):
 
     _VOICES = {
         "tone:piano": {"name": "ASCII Piano", "language": "music", "family": "keyed"},
+        "tone:electric_piano": {
+            "name": "ASCII Electric Piano",
+            "language": "music",
+            "family": "electric keyed",
+        },
         "tone:banjo": {
             "name": "ASCII Banjo",
             "language": "music",
@@ -101,6 +118,16 @@ class ToneProvider(TTSProvider):
             "language": "music",
             "family": "string",
         },
+        "tone:electric_bass": {
+            "name": "ASCII Electric Bass",
+            "language": "music",
+            "family": "electric string",
+        },
+        "tone:synth_bass": {
+            "name": "ASCII Synth Bass",
+            "language": "music",
+            "family": "synth",
+        },
         "tone:clarinet": {
             "name": "ASCII Clarinet",
             "language": "music",
@@ -108,6 +135,11 @@ class ToneProvider(TTSProvider):
         },
         "tone:marimba": {
             "name": "ASCII Marimba",
+            "language": "music",
+            "family": "percussion",
+        },
+        "tone:drum_kit": {
+            "name": "ASCII Drum Kit",
             "language": "music",
             "family": "percussion",
         },
@@ -125,6 +157,16 @@ class ToneProvider(TTSProvider):
             "name": "ASCII Tenor Sax",
             "language": "music",
             "family": "single reed",
+        },
+        "tone:square_lead": {
+            "name": "ASCII Square Lead",
+            "language": "music",
+            "family": "synth",
+        },
+        "tone:synth_strings": {
+            "name": "ASCII Synth Strings",
+            "language": "music",
+            "family": "synth",
         },
         "tone:trumpet": {
             "name": "ASCII Cornet-Trumpet",
@@ -293,6 +335,24 @@ class ToneProvider(TTSProvider):
                 sustain=0.84,
                 release=0.11,
             )
+        elif voice == "tone:electric_piano":
+            tremolo = 1.0 + 0.035 * np.sin(2.0 * np.pi * 6.2 * timeline)
+            bell = np.exp(-7.0 * timeline / duration)
+            waveform = _harmonic_wave(phase, [1.0, 0.34, 0.16, 0.08])
+            waveform += bell * (
+                0.42 * np.sin(2.01 * phase)
+                + 0.18 * np.sin(3.98 * phase)
+                + 0.09 * np.sin(7.02 * phase)
+            )
+            waveform *= tremolo
+            envelope = _adsr_envelope(
+                frame_count,
+                sample_rate,
+                attack=0.004,
+                decay=0.18,
+                sustain=0.42,
+                release=0.08,
+            )
         elif voice == "tone:bass":
             waveform = _harmonic_wave(phase, [1.0, 0.72, 0.36, 0.18, 0.10])
             waveform += 0.12 * np.sin(0.5 * phase)
@@ -304,6 +364,33 @@ class ToneProvider(TTSProvider):
                 decay=0.09,
                 sustain=0.55,
                 release=0.08,
+            )
+        elif voice == "tone:electric_bass":
+            pluck = np.exp(-4.0 * timeline / duration)
+            waveform = _harmonic_wave(phase, [1.0, 0.62, 0.30, 0.16])
+            waveform += 0.22 * np.sin(0.5 * phase)
+            waveform = np.tanh(1.7 * waveform) * pluck
+            envelope = _adsr_envelope(
+                frame_count,
+                sample_rate,
+                attack=0.005,
+                decay=0.07,
+                sustain=0.58,
+                release=0.07,
+            )
+        elif voice == "tone:synth_bass":
+            sub = np.sin(0.5 * phase)
+            square = np.sign(np.sin(phase))
+            pulse = np.sign(np.sin(phase + 0.42 * np.sin(2.0 * np.pi * 2.1 * timeline)))
+            waveform = 0.45 * sub + 0.38 * square + 0.17 * pulse
+            waveform = np.tanh(1.9 * waveform)
+            envelope = _adsr_envelope(
+                frame_count,
+                sample_rate,
+                attack=0.003,
+                decay=0.045,
+                sustain=0.70,
+                release=0.055,
             )
         elif voice == "tone:clarinet":
             waveform = (
@@ -335,6 +422,32 @@ class ToneProvider(TTSProvider):
                 sustain=0.18,
                 release=0.07,
             )
+        elif voice == "tone:drum_kit":
+            noise = _deterministic_noise(timeline, frequency)
+            if frequency < 180.0:
+                drop = np.exp(-34.0 * timeline)
+                drum_phase = 2.0 * np.pi * (55.0 + 58.0 * drop) * timeline
+                waveform = np.sin(drum_phase) * np.exp(-11.0 * timeline)
+                waveform += 0.08 * noise * np.exp(-55.0 * timeline)
+                envelope = np.ones(frame_count, dtype=np.float32)
+            elif frequency < 420.0:
+                body = np.sin(2.0 * np.pi * 190.0 * timeline)
+                snap = noise * np.exp(-24.0 * timeline)
+                waveform = 0.38 * body * np.exp(-12.0 * timeline) + 0.72 * snap
+                envelope = np.ones(frame_count, dtype=np.float32)
+            elif frequency < 620.0:
+                drum_phase = 2.0 * np.pi * (95.0 + frequency * 0.22) * timeline
+                waveform = np.sin(drum_phase) * np.exp(-9.0 * timeline)
+                waveform += 0.20 * noise * np.exp(-20.0 * timeline)
+                envelope = np.ones(frame_count, dtype=np.float32)
+            else:
+                metallic = (
+                    np.sin(2.0 * np.pi * 5211.0 * timeline)
+                    + np.sin(2.0 * np.pi * 7417.0 * timeline)
+                    + np.sin(2.0 * np.pi * 9127.0 * timeline)
+                )
+                waveform = (0.72 * noise + 0.28 * metallic) * np.exp(-36.0 * timeline)
+                envelope = np.ones(frame_count, dtype=np.float32)
         elif voice == "tone:oboe":
             reed_buzz = _harmonic_wave(
                 phase, [0.95, 0.28, 0.88, 0.24, 0.52, 0.16, 0.28, 0.10]
@@ -375,6 +488,40 @@ class ToneProvider(TTSProvider):
                 decay=0.09,
                 sustain=0.78,
                 release=0.09,
+            )
+        elif voice == "tone:square_lead":
+            vibrato = 1.0 + 0.004 * np.sin(2.0 * np.pi * 5.8 * timeline)
+            lead_phase = 2.0 * np.pi * frequency * vibrato * timeline
+            waveform = (
+                np.sign(np.sin(lead_phase))
+                + 0.38 * np.sign(np.sin(2.0 * lead_phase))
+                + 0.16 * np.sin(3.0 * lead_phase)
+            )
+            waveform = np.tanh(1.25 * waveform)
+            envelope = _adsr_envelope(
+                frame_count,
+                sample_rate,
+                attack=0.002,
+                decay=0.035,
+                sustain=0.74,
+                release=0.045,
+            )
+        elif voice == "tone:synth_strings":
+            slow = 1.0 - np.exp(-12.0 * timeline)
+            chorus = (
+                _harmonic_wave(phase, [1.0, 0.42, 0.24, 0.15])
+                + 0.52 * _harmonic_wave(phase * 1.004, [1.0, 0.36, 0.20])
+                + 0.36 * _harmonic_wave(phase * 0.997, [1.0, 0.28, 0.14])
+            )
+            shimmer = 1.0 + 0.028 * np.sin(2.0 * np.pi * 0.8 * timeline)
+            waveform = chorus * slow * shimmer
+            envelope = _adsr_envelope(
+                frame_count,
+                sample_rate,
+                attack=0.080,
+                decay=0.18,
+                sustain=0.82,
+                release=0.16,
             )
         elif voice == "tone:trumpet":
             wobble = 1.0 + 0.003 * np.sin(2.0 * np.pi * 4.6 * timeline)
@@ -447,6 +594,19 @@ def _breath_noise(timeline: np.ndarray, seed_frequency: float) -> np.ndarray:
         np.sin(2.0 * np.pi * (1703.0 + seed * 0.07) * timeline)
         + 0.55 * np.sin(2.0 * np.pi * (2411.0 + seed * 0.11) * timeline)
         + 0.35 * np.sin(2.0 * np.pi * (3187.0 + seed * 0.05) * timeline)
+    )
+
+
+def _deterministic_noise(timeline: np.ndarray, seed_frequency: float) -> np.ndarray:
+    seed = max(1.0, seed_frequency)
+    return np.tanh(
+        1.4
+        * (
+            np.sin(2.0 * np.pi * (1217.0 + seed * 0.31) * timeline)
+            + 0.72 * np.sin(2.0 * np.pi * (2659.0 + seed * 0.17) * timeline)
+            + 0.48 * np.sin(2.0 * np.pi * (4801.0 + seed * 0.09) * timeline)
+            + 0.31 * np.sin(2.0 * np.pi * (7919.0 + seed * 0.04) * timeline)
+        )
     )
 
 
@@ -566,7 +726,7 @@ def build_manager() -> TTSManager:
     register_provider(PROVIDER_NAME, ToneProvider)
 
     settings = Settings(
-        voice_synth=VoiceSynthSettings(
+        voice_conductor=VoiceConductorSettings(
             provider_chain=[PROVIDER_NAME],
             cache=CacheSettings(root=EXAMPLE_DIR / ".runtime"),
         ),
@@ -583,6 +743,17 @@ def build_manager() -> TTSManager:
     return TTSManager(settings=settings)
 
 
+def write_track(
+    manager: TTSManager, runtime_dir: Path, voice_name: str, score: str
+) -> WrittenTrack:
+    """Synthesize one score and write its stem WAV."""
+
+    track = manager.synthesize_voice(score, provider=PROVIDER_NAME, voice=voice_name)
+    target = runtime_dir / f"{voice_name}-track.wav"
+    track.copy_to(target)
+    return WrittenTrack(voice_name=voice_name, audio=track, target=target)
+
+
 def main() -> None:
     manager = build_manager()
     try:
@@ -593,45 +764,35 @@ def main() -> None:
         print(f"Notation: {notation_help()}")
 
         # song = {
-        #     "piano": "@132 !0.72 ([adg] [sfh] [dgj] [fha])*2 | [adq]2 - [sgw]2 -",
-        #     "clarinet": "@132 !0.58 a s d f | g2 f d s | a s d f | g2 h j q",
-        #     "trumpet": "@132 !0.64 -- q e t | y2 t e q | -- j q e | t2 e q j",
+        #     "electric_piano": "@132 !0.72 ([adg] [sfh] [dgj] [fha])*2",
+        #     "synth_bass": "@132 !0.66 z/2 -/2 z/2 b/2 | z/2 -/2 b/2 z/2",
+        #     "square_lead": "@132 !0.58 -- q e t | y2 t e q",
+        #     "synth_strings": "@132 !0.42 [adg]4 | [sfh]4",
+        #     "drum_kit": "@132 !0.70 (z/2 r/4 s/4 r/4 s/4 y/2)*2",
         # }
-        
-        song = {
-            # MIDI track: Drums
-
-            'marimba': '^0.3 @110.00011 !0.19 v#/4 [v#y#]/4 [x#cv#]/4 [v#y#]/4 v#/4 [v#y#]/4 [x#cv#]/4 [v#y#]/4 v#/4 [v#y#]/4 [x#cv#]/4 [v#y#]/4 v#/4 [v#y#]/4 [x#cv#]/4 [v#y#]/4 | v#/4 [v#y#]/4 [x#cv#]/4 [v#y#]/4 v#/4 [v#y#]/4 [x#cv#]/4 [v#y#]/4 v#/4 [v#y#]/4 [x#cv#]/4 [v#y#]/4 v#/4 [v#y#]/4 [x#cv#]/4 [v#y#]/4 | v#/4 [v#y#]/4 [x#cv#]/4 [v#y#]/4 v#/4 [v#y#]/4 [x#cv#]/4 [v#y#]/4 v#/4 [v#y#]/4 [x#cv#]/4 [v#y#]/4 v#/4 [v#y#]/4 [x#cv#]/4 [v#y#]/4 | [n#z#v#n]/4 [v#y#]/4 [x#cv#]/4 [v#y#]/4 v#/4 [v#y#]/4 [x#cv#]/4 [v#y#]/4 v#/4 [v#y#]/4 [x#cv#]/4 [v#y#]/4 v#/4 [v#y#]/4 [x#cv#]/4 [v#y#]/4 | v#/4 -/4 [x#cv#]/4 -/4 v#/4 -/4 [x#cv#]/4 -/4 v#/4 -/4 [x#cv#]/4 -/4 v#/4 -/4 [x#cv#]/4 -/4 | [mn#z#v#n]/4 -/4 [x#c]/4 -/4 [mv#]/4 -/4 [x#c]/4 -/4 [mv#]/4 -/4 [x#c]/4 -/4 [mv#]/4 -/4 [x#c]/4 -/4 | [mv#]/4 -/4 [x#c]/4 -/4 [mv#]/4 -/4 [x#c]/4 -/4 [mv#]/4 -/4 [x#c]/4 -/4 [mv#]/4 -/4 [x#c]/4 -/4 | [mv#]/4 -/4 [x#c]/4 -/4 [mv#]/4 -/4 [x#c]/4 -/4 [mv#]/4 -/4 [x#c]/4 -/4 [mv#]/4 -/4 [x#c]/4 -/4 | [mv#]/4 -/4 [x#c]/4 -/4 [mv#]/4 -/4 [x#c]/4 -/4 [mv#]/4 -/4 [x#c]/4 -/4 [mv#]/4 -/4 [x#c]/4 -/4 | [mv#]/4 -/4 [x#c]/4 -/4 [mv#]/4 -/4 [x#c]/4 -/4 [mv#]/4 -/4 [x#c]/4 -/4 [mv#]/4 -/4 [x#c]/4 -/4 | [mv#]/4 -/4 [x#c]/4 -/4 [mv#]/4 -/4 [x#c]/4 -/4 [mv#]/4 -/4 [x#c]/4 -/4 [mv#]/4 -/4 [x#c]/4 -/4 | [mv#]/4 -/4 [x#c]/4 -/4 [mv#]/4 -/4 [x#c]/4 -/4 [mv#]/4 -/4 [x#c]/4 -/4 [mv#]/4 -/4 [x#c]/4 -/4 | [mv#]/4 -/4 [x#c]/4 -/4 [mv#]/4 -/4 [x#c]/4 -/4 [mv#]/4 -/4 [x#c]/4 -/4 [mv#]/4 -/4 [x#c]/4 -/4 | [mn#z#n]/4 -/4 [bc]/4 -0.75 [bc]/4 -/4 m/4 -/4 [bc]/4 -0.75 [bc]/4 -/4 | m/4 -/4 [bc]/4 -0.75 [bc]/4 -/4 m/4 -/4 [bc]/4 -0.75 [bc]/4 -/4 | m/4 -/4 [bc]/4 -0.75 [bc]/4 -/4 m/4 -/4 [bc]/4 -0.75 [bc]/4 -/4 | m/4 -/4 [bc]/4 -0.75 [bc]/4 -/4 m/4 -/4 [bc]/4 -0.75 [bc]/4 -/4 | m/4 -/4 [bc]/4 -0.75 [bc]/4 -/4 m/4 -/4 [bc]/4 -0.75 [bc]/4 -/4 | m/4 -/4 [bc]/4 -0.75 [bc]/4 -/4 m/4 -/4 [bc]/4 -0.75 [bc]/4 -/4 | m/4 -/4 [bc]/4 -0.75 [bc]/4 -/4 m/4 -/4 [bc]/4 -0.75 [bc]/4 -/4 | m/4 -/4 [bc]/4 -0.75 [bc]/4 -/4 m/4 -/4 [bc]/4 -0.75 [bc]/4 -/4',
-            # MIDI track: Bass
-            'bass': '^0.3 @110.00011 !0.39 v/2 -/2 z/2 -/2 v/2 -/2 c/2 x/2 | z/2 -/2 b/2 -/2 z/2 -/2 b/2 -/2 | b/2 -/2 x/2 -/2 b n/2 m/2 | z/2 -/2 b/2 -/2 b#/2 -/2 x#/2 -/2 | x/2 -/2 n/2 -/2 b/2 -/2 m/2 -/2 | v/2 -/2 z/2 -/2 v/2 -/2 z/2 v/2 | z/2 -/2 b/2 -/2 z/2 -/2 b/2 z/2 | v/2 -/2 z/2 -/2 v/2 -/2 z/2 v#/2 | b/2 -/2 x/2 -/2 b/2 -/2 b/2 v#/2 | v/2 -/2 z/2 -/2 v/2 -/2 z/2 v/2 | z/2 -/2 b/2 -/2 z/2 -/2 b/2 z/2 | v/2 -/2 z/2 v/2 v#/2 -/2 x/2 v#/2 | b/2 -/2 x/2 -/2 m/2 -/2 b/2 -32.5',
-            # MIDI track: Flute
-            'recorder': '^1 @110.00011 !0.58 q/2 -/2 q/2 -/4 w/4 w#/4 -/4 w/4 -/4 q/4 -/4 g#/4 -/4 | q/2 -/2 q/2 -/4 w/4 q/4 -/4 g/4 -/4 g/2 -0.375 h#/8 | j/2 -/4 h#/4 j/4 -/4 h/4 -/4 g/4 -/4 g/4 -/4 h/4 -/4 j/4 -/4 | q/4 -/4 q/2 -/4 j/4 q/4 -/4 g#/4 -/4 q/2 -/4 j/4 q/4 -/4 | h/4 -/4 q/2 -/4 j/4 q/4 -/4 j/2 h/4 -/4 g/4 -/4 f/4 -/4 | !0.46 r/2 -/4 t/4 y/4 -/4 r/4 -/4 q/8 w/8 q/8 w/8 q/8 w/8 q/8 w/8 q/8 w/8 q/8 w/8 q/2 | -/4 w/4 e/4 -/4 q/4 -/4 t/8 y/8 t/8 y/8 t/8 y/8 t/8 y/8 t/8 y/8 t/8 y/8 r/2 -/4 t/4 | y/4 -/4 r/4 -/4 q/8 w/8 q/8 w/8 q/8 w/8 q/8 w/8 q/8 w/8 q/8 -/4 u/4 -/4 u/4 -/4 y/4 -/4 | y/4 -/4 u/4 -/4 u/4 -/4 t/4 -/4 t/4 -/4 r/2 -/4 t/4 y/4 -/4 | r/4 -/4 q/8 w/8 q/8 w/8 q/8 w/8 q/8 w/8 q/8 w/8 q/8 w/8 q/2 -/4 w/4 e/4 -/4 q/4 -/4 | t/8 y/8 t/8 y/8 t/8 y/8 t/8 y/8 t/8 y/8 t/8 y/8 r/2 -/4 t/4 y/4 -/4 r/4 -/4 r#/2 | t/2 y/4 -/4 r#/4 -/4 t/2 -/4 y/4 u/4 -/4 t/4 -/4 u/4 -/4 | w/4 -/4 t/4 -32.75',
-            # MIDI track: Trompete
-            'trumpet': '^0.05 @110.00011 !0.58 v1.75 z1.875 c2 | -/2 c/4 -/4 x#/4 -/4 c/4 -/4 v | x m x z1.75 | -/4 z/4 -/4 x/4 -/4 x#0.75 -/4 x/4 -/4 | c/4 -/4 v# b v !0.43 [vn] | -/2 [vn]/2 -/2 [vn]/2 -/2 [vn]/2 [cb] | -/2 [cb]/2 -/2 [cb]/2 -/2 [cb]/2 [vn] | -/2 [vn]/2 -/2 [vn]/2 -/2 [v#n#]/2 [bm] | -/2 [bm]/2 -/2 [bm]/2 -/2 [v#n#]/2 [vn] | -/2 [vn]/2 -/2 [vn]/2 -/2 [vn]/2 [cb] | -/2 [cb]/2 -/2 [cb]/2 -/2 [cb]/2 [vn] | -/2 [vn]/2 [v#n#] -/2 [v#n#]/2 [bm] | -/2 [bm]/2 -/2 [bm]/2 -/2 [bm]/2 -32',
-            # MIDI track: Tuba
-            'tuba': '^0.3 @110.00011 !0.39 v/2 -/2 z/2 -/2 v/2 -/2 c/2 x/2 | z/2 -/2 b/2 -/2 z/2 -/2 b/2 -/2 | b/2 -/2 x/2 -/2 b n/2 m/2 | z/2 -/2 b/2 -/2 b#/2 -/2 x#/2 -/2 | x/2 -/2 n/2 -/2 b/2 -/2 m/2 -/2 | v/2 -/2 z/2 -/2 v/2 -/2 z/2 v/2 | z/2 -/2 b/2 -/2 z/2 -/2 b/2 z/2 | v/2 -/2 z/2 -/2 v/2 -/2 z/2 v#/2 | b/2 -/2 x/2 -/2 b/2 -/2 b/2 v#/2 | v/2 -/2 z/2 -/2 v/2 -/2 z/2 v/2 | z/2 -/2 b/2 -/2 z/2 -/2 b/2 z/2 | v/2 -/2 z/2 v/2 v#/2 -/2 x/2 v#/2 | b/2 -/2 x/2 -/2 m/2 -/2 b/2 -32.5',
-            # MIDI track: Marimba
-            'marimba_2': '^0.5 @110.00011 !0.39 d/4 q/4 g#/4 q/4 d/4 q/4 g#/4 q/4 d/4 q/4 g#/4 q/4 d/4 q/4 g#/4 q/4 | d/4 q/4 g/4 q/4 d/4 q/4 g/4 q/4 d/4 q/4 g/4 q/4 d/4 q/4 g/4 q/4 | s/4 j/4 g/4 j/4 s/4 j/4 g/4 j/4 s/4 j/4 g/4 j/4 s/4 j/4 g/4 j/4 | d/4 q/4 -/4 q/4 d/4 q/4 -/4 q/4 s#/4 q/4 -/4 q/4 s#/4 q/4 -/4 q/4 | f#/4 q/4 -/4 q/4 f#/4 q/4 -/4 q/4 s/4 q/4 -/4 q/4 s/4 q/4 -32.5 | !0.55 q/4 -0.75 q/4 -/2 w/4 q/4 -/4 g/4 -/4 g/4 -0.75 | h/4 -/2 g#/4 h/4 -/4 j/4 -/4 q/4 -0.75 j/4 -/4 h/4 -/4 | g/4 -0.75 g/4 -/2 h/4 g/4 -/4 d/4 -/4 f/4 -/4 s/4 -/4 | d/4 -2.25 g/4 -/4 h/4 -/4 j/4 -/4 | q/4 -0.75 q/4 -/2 w/4 q/4 -/4 g/4 -/4 g/4 -0.75 | e/4 -/2 w#/4 e/4 -/4 w/4 -/4 q/4 -0.75 q/4 -/4 q#/4 -/4 | w/4 -0.75 w/4 -/2 e/4 w/4 -0.75 h/4 -0.75 | j/4 -/2 h#/4 j/4 -/4 h/4 -/4 g/4 -/4 g/4 -/4 h/4 -/4 j/4 -/4',
-            # MIDI track: Oboe
-            'oboe': '^0.5 @110.00011 -/2 !0.33 [zb#]/2 -/2 [zb#]/2 -/2 [zb#]/2 -/2 [zb#]/2 | -/2 [zb]/2 -/2 [zb]/2 -/2 [zb]/2 -/2 [zb]/2 | -/2 [mb]/2 -/2 [mb]/2 -/2 [mb]/2 -/2 [mb]/2 | -/2 [zb]/2 -/2 [zb]/2 -/2 [zb#]/2 -/2 [zb#]/2 | -68',
-            # MIDI track: Bassoon
-            'oboe_2': '^0.5 @110.00011 -52 | !0.35 z/2 -/2 b/2 -/2 z/2 -/2 b/2 z/2 | n/2 -/2 c/2 -/2 n/2 -/2 n/2 b#/2 | b/2 -/2 x/2 -/2 b n/2 m/2 | z/2 -/2 b/2 -/2 z/2 m/2 n/2 b/2 | z/2 -/2 b/2 -/2 z/2 -/2 b/2 z/2 | c/2 -/2 b#/2 -/2 n/2 -/2 n/2 c/2 | x/2 -/2 n/2 -/2 x/2 -/2 n/2 -/2 | b/2 -/2 x/2 -/2 b n/2 m/2',
-        }
-
-
 
         runtime_dir = EXAMPLE_DIR / ".runtime"
         runtime_dir.mkdir(parents=True, exist_ok=True)
-        tracks: list[SynthesizedAudio] = []
-        for voice_name, score in song.items():
-            track = manager.synthesize_voice(
-                score, provider=PROVIDER_NAME, voice=voice_name
+        
+        
+        
+        written_tracks = list(
+                map(
+                    write_track,
+                    repeat(manager),
+                    repeat(runtime_dir),
+                    song.keys(),
+                    song.values(),
+                )
             )
-            tracks.append(track)
-            target = runtime_dir / f"{voice_name}-track.wav"
-            track.copy_to(target)
+        
+            
+
+        tracks = [written.audio for written in written_tracks]
+        for written in written_tracks:
             print(
-                f"Wrote {voice_name:8} track: {target} ({track.duration_seconds:.2f}s)"
+                f"Wrote {written.voice_name:8} track: {written.target} "
+                f"({written.audio.duration_seconds:.2f}s)"
             )
 
         merged = merge_tracks(tracks, text="\n".join(song.values()))
@@ -640,8 +801,11 @@ def main() -> None:
         print(f"Wrote merged song: {merged_target} ({merged.duration_seconds:.2f}s)")
 
         try:
-            result = manager.route(merged, routes="speakers")
-            print("Routed merged song to:", result.devices["speakers"].name)
+            routes = ["speakers", "mic"]
+            # routes = ["mic"]
+            result = manager.route(merged, routes=routes)
+            for route in routes:
+                print("Routed merged song to:", result.devices[route].name)
         except Exception as exc:
             print(f"Could not route to speakers in this environment: {exc}")
     finally:

@@ -6,12 +6,12 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Callable, Iterable
 
-from voice_synth.audio.devices import find_output_device, list_output_devices, virtual_mic_device_name
-from voice_synth.audio.playback import (
+from voice_conductor.audio.devices import find_output_device, list_output_devices, virtual_mic_device_name
+from voice_conductor.audio.playback import (
     PlaybackQueue,
     _SoundDeviceAudioWriter,
 )
-from voice_synth.types import (
+from voice_conductor.types import (
     AudioDevice,
     PlaybackCompleteEvent,
     PlaybackHooks,

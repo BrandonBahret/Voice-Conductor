@@ -17,10 +17,10 @@ import sys
 import tempfile
 from typing import Any
 
-from voice_synth.config import Settings
-from voice_synth.exceptions import ProviderError
-from voice_synth.providers.base import TTSProvider
-from voice_synth.types import SynthesizedAudio, VoiceInfo
+from voice_conductor.config import Settings
+from voice_conductor.exceptions import ProviderError
+from voice_conductor.providers.base import TTSProvider
+from voice_conductor.types import SynthesizedAudio, VoiceInfo
 
 _LIST_VOICES_SCRIPT = """
 Add-Type -AssemblyName System.Speech

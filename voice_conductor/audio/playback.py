@@ -7,8 +7,8 @@ from typing import Callable, TypeVar
 
 import numpy as np
 
-from voice_synth.audio.devices import _load_sounddevice
-from voice_synth.types import (
+from voice_conductor.audio.devices import _load_sounddevice
+from voice_conductor.types import (
     AudioDevice,
     PlaybackTask,
     SynthesizedAudio,
@@ -23,7 +23,7 @@ class PlaybackQueue:
     def __init__(self) -> None:
         self._executor = ThreadPoolExecutor(
             max_workers=1,
-            thread_name_prefix="voice-synth-playback",
+            thread_name_prefix="VoiceConductor-playback",
         )
 
     def submit(self, fn: Callable[..., _T], *args, **kwargs) -> PlaybackTask[_T]:

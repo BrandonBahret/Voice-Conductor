@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import unittest
 
-from voice_synth.audio.router import RouteConfig, normalize_route_name
-from voice_synth.types import AudioDevice
+from voice_conductor.audio.router import RouteConfig, normalize_route_name
+from voice_conductor.types import AudioDevice
 
 
 def _devices(*, include_virtual: bool = True) -> list[AudioDevice]:

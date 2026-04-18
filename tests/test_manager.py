@@ -13,17 +13,17 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from voice_synth.config import CacheSettings, Settings, VoiceSynthSettings
-from voice_synth.config import _default_cache_path
-from voice_synth.config import load_settings
-from voice_synth.config import settings_from_dict
-from voice_synth.config_registry import register_provider_config, unregister_provider_config
-from voice_synth.exceptions import ConfigurationError, DeviceResolutionError, ProviderError
-from voice_synth.manager import TTSManager
-from voice_synth.audio.router import AudioRoute, RouteConfig
-from voice_synth.providers.base import TTSProvider
-from voice_synth.providers.registry import ProviderRegistry, unregister_provider
-from voice_synth.types import AudioDevice, PlaybackHooks, SynthesizedAudio, VoiceInfo
+from voice_conductor.config import CacheSettings, Settings, VoiceConductorSettings
+from voice_conductor.config import _default_cache_path
+from voice_conductor.config import load_settings
+from voice_conductor.config import settings_from_dict
+from voice_conductor.config_registry import register_provider_config, unregister_provider_config
+from voice_conductor.exceptions import ConfigurationError, DeviceResolutionError, ProviderError
+from voice_conductor.manager import TTSManager
+from voice_conductor.audio.router import AudioRoute, RouteConfig
+from voice_conductor.providers.base import TTSProvider
+from voice_conductor.providers.registry import ProviderRegistry, unregister_provider
+from voice_conductor.types import AudioDevice, PlaybackHooks, SynthesizedAudio, VoiceInfo
 
 
 class FakeProvider(TTSProvider):
@@ -237,13 +237,13 @@ def _settings(
     speaker_device: str | None = None,
     mic_device: str | None = None,
 ) -> Settings:
-    voice_synth: dict[str, object] = {}
+    voice_conductor: dict[str, object] = {}
     if cache_path is not None:
-        voice_synth["cache"] = {"path": cache_path}
+        voice_conductor["cache"] = {"path": cache_path}
     if provider_chain is not None:
-        voice_synth["provider_chain"] = provider_chain
+        voice_conductor["provider_chain"] = provider_chain
     if default_provider is not None:
-        voice_synth["default_provider"] = default_provider
+        voice_conductor["default_provider"] = default_provider
     devices: dict[str, object] = {}
     if speaker_device is not None:
         devices["speaker"] = speaker_device
@@ -255,8 +255,8 @@ def _settings(
             routes["speakers"] = {"device": speaker_device}
         if mic_device is not None:
             routes["mic"] = {"device": mic_device, "prefer_virtual_cable": True}
-        voice_synth["route_config"] = {"routes": routes}
-    return settings_from_dict({"voice_synth": voice_synth})
+        voice_conductor["route_config"] = {"routes": routes}
+    return settings_from_dict({"voice_conductor": voice_conductor})
 
 
 class TTSManagerTests(unittest.TestCase):
@@ -264,12 +264,12 @@ class TTSManagerTests(unittest.TestCase):
         original_cwd = Path.cwd()
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
-            config_path = temp_path / "voice_synth.config.jsonc"
+            config_path = temp_path / "voice_conductor.config.jsonc"
             config_path.write_text(
                 (
                     "// JSONC comments are allowed here.\n"
                     "{"
-                    '"voice_synth":{"provider_chain":["azure","windows"]},'
+                    '"voice_conductor":{"provider_chain":["azure","windows"]},'
                     '"providers":{"azure":{"speech_key":"file-key","region":"westus"}}'
                     "}"
                 ),
@@ -283,20 +283,20 @@ class TTSManagerTests(unittest.TestCase):
 
         self.assertEqual(settings.providers.azure.speech_key, "file-key")
         self.assertEqual(settings.providers.azure.region, "westus")
-        self.assertEqual(settings.voice_synth.provider_chain, ["azure", "windows"])
+        self.assertEqual(settings.voice_conductor.provider_chain, ["azure", "windows"])
 
     def test_load_settings_prefers_jsonc_over_json(self) -> None:
         original_cwd = Path.cwd()
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
-            (temp_path / "voice_synth.config.json").write_text(
-                '{"voice_synth":{"provider_chain":["windows"]}}',
+            (temp_path / "voice_conductor.config.json").write_text(
+                '{"voice_conductor":{"provider_chain":["windows"]}}',
                 encoding="utf-8",
             )
-            (temp_path / "voice_synth.config.jsonc").write_text(
+            (temp_path / "voice_conductor.config.jsonc").write_text(
                 (
                     "{"
-                    '"voice_synth":{'
+                    '"voice_conductor":{'
                     '"provider_chain":["azure"],'
                     "},"
                     "}"
@@ -309,13 +309,13 @@ class TTSManagerTests(unittest.TestCase):
             finally:
                 os.chdir(original_cwd)
 
-        self.assertEqual(settings.voice_synth.provider_chain, ["azure"])
+        self.assertEqual(settings.voice_conductor.provider_chain, ["azure"])
 
     def test_load_settings_rejects_flat_json_config(self) -> None:
         original_cwd = Path.cwd()
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
-            (temp_path / "voice_synth.config.json").write_text(
+            (temp_path / "voice_conductor.config.json").write_text(
                 '{"azure_speech_key":"file-key","provider_chain":"azure,windows"}',
                 encoding="utf-8",
             )
@@ -330,8 +330,8 @@ class TTSManagerTests(unittest.TestCase):
         original_cwd = Path.cwd()
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
-            (temp_path / "voice_synth.config.json").write_text(
-                '{"voice_synth":{"cache":{"path":"phrases.db"}}}',
+            (temp_path / "voice_conductor.config.json").write_text(
+                '{"voice_conductor":{"cache":{"path":"phrases.db"}}}',
                 encoding="utf-8",
             )
             os.chdir(temp_path)
@@ -340,13 +340,13 @@ class TTSManagerTests(unittest.TestCase):
             finally:
                 os.chdir(original_cwd)
 
-        self.assertEqual(settings.voice_synth.cache.path, str(temp_path / "phrases.db"))
+        self.assertEqual(settings.voice_conductor.cache.path, str(temp_path / "phrases.db"))
 
     def test_hf_token_loads_from_json(self) -> None:
         original_cwd = Path.cwd()
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
-            (temp_path / "voice_synth.config.json").write_text(
+            (temp_path / "voice_conductor.config.json").write_text(
                 '{"providers":{"kokoro":{"hf_token":"hf-test-token"}}}',
                 encoding="utf-8",
             )
@@ -362,7 +362,7 @@ class TTSManagerTests(unittest.TestCase):
         original_cwd = Path.cwd()
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
-            (temp_path / "voice_synth.config.json").write_text(
+            (temp_path / "voice_conductor.config.json").write_text(
                 (
                     "{"
                     '"providers":{"elevenlabs":{'
@@ -392,7 +392,7 @@ class TTSManagerTests(unittest.TestCase):
         original_cwd = Path.cwd()
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
-            (temp_path / "voice_synth.config.json").write_text(
+            (temp_path / "voice_conductor.config.json").write_text(
                 (
                     "{"
                     '"providers":{"windows":{'
@@ -416,7 +416,7 @@ class TTSManagerTests(unittest.TestCase):
         original_cwd = Path.cwd()
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
-            (temp_path / "voice_synth.config.json").write_text(
+            (temp_path / "voice_conductor.config.json").write_text(
                 (
                     "{"
                     '"providers":{"azure":{'
@@ -440,12 +440,12 @@ class TTSManagerTests(unittest.TestCase):
         original_cwd = Path.cwd()
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
-            expected_cache_path = str(temp_path / "voice_synth_cache.db")
-            (temp_path / "voice_synth.config.json").write_text(
+            expected_cache_path = str(temp_path / "voice_conductor_cache.db")
+            (temp_path / "voice_conductor.config.json").write_text(
                 (
                     "{"
                     '"providers":{"azure":{"default_voice":""},"kokoro":{"language_code":""}},'
-                    '"voice_synth":{"cache":{"path":""},"route_config":{"routes":{"speakers":{"device":""}}},"default_provider":""}'
+                    '"voice_conductor":{"cache":{"path":""},"route_config":{"routes":{"speakers":{"device":""}}},"default_provider":""}'
                     "}"
                 ),
                 encoding="utf-8",
@@ -458,15 +458,15 @@ class TTSManagerTests(unittest.TestCase):
 
         self.assertEqual(settings.providers.azure.default_voice, "en-US-AvaNeural")
         self.assertEqual(settings.providers.kokoro.language_code, "a")
-        self.assertEqual(settings.voice_synth.cache.path, expected_cache_path)
-        self.assertIsNone(settings.voice_synth.route_config.get("speakers").device)
-        self.assertIsNone(settings.voice_synth.default_provider)
+        self.assertEqual(settings.voice_conductor.cache.path, expected_cache_path)
+        self.assertIsNone(settings.voice_conductor.route_config.get("speakers").device)
+        self.assertIsNone(settings.voice_conductor.default_provider)
 
     def test_cache_key_changes_when_provider_settings_change(self) -> None:
         provider_fast = FakeProviderWithSuffix("kokoro", available=True, cache_suffix="speed=1.0")
         provider_slow = FakeProviderWithSuffix("kokoro", available=True, cache_suffix="speed=1.5")
         with tempfile.TemporaryDirectory() as temp_dir:
-            cache_path = str(Path(temp_dir) / "voice_synth_cache.db")
+            cache_path = str(Path(temp_dir) / "voice_conductor_cache.db")
             first = TTSManager(
                 settings=_settings(cache_path=cache_path),
                 providers={
@@ -488,6 +488,8 @@ class TTSManagerTests(unittest.TestCase):
 
             first.synthesize("Need backup")
             second.synthesize("Need backup")
+            first.close()
+            second.close()
 
         self.assertEqual(provider_fast.calls, [("Need backup", None)])
         self.assertEqual(provider_slow.calls, [("Need backup", None)])
@@ -496,7 +498,7 @@ class TTSManagerTests(unittest.TestCase):
         provider_fast = FakeProviderWithSuffix("kokoro", available=True, cache_suffix="speed=1.0")
         provider_slow = FakeProviderWithSuffix("kokoro", available=True, cache_suffix="speed=1.5")
         with tempfile.TemporaryDirectory() as temp_dir:
-            cache_path = str(Path(temp_dir) / "voice_synth_cache.db")
+            cache_path = str(Path(temp_dir) / "voice_conductor_cache.db")
             first = TTSManager(
                 settings=_settings(cache_path=cache_path),
                 providers={
@@ -518,6 +520,8 @@ class TTSManagerTests(unittest.TestCase):
                 },
             )
             cached = second.synthesize("Need backup", cache_lookup="relaxed")
+            first.close()
+            second.close()
 
         self.assertEqual(cached.text, "Need backup")
         self.assertEqual(provider_slow.calls, [])
@@ -526,7 +530,7 @@ class TTSManagerTests(unittest.TestCase):
         original_cwd = Path.cwd()
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
-            (temp_path / "voice_synth.config.example.json").write_text(
+            (temp_path / "voice_conductor.config.example.json").write_text(
                 '{"providers":{"azure":{"speech_key":"should-not-load"}}}',
                 encoding="utf-8",
             )
@@ -541,7 +545,7 @@ class TTSManagerTests(unittest.TestCase):
     def test_list_providers_only_returns_available_backends(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             manager = TTSManager(
-                settings=_settings(cache_path=str(Path(temp_dir) / "voice_synth_cache.db")),
+                settings=_settings(cache_path=str(Path(temp_dir) / "voice_conductor_cache.db")),
                 providers={
                     "azure": FakeProvider("azure", available=True),
                     "elevenlabs": FakeProvider("elevenlabs", available=False),
@@ -582,12 +586,13 @@ class TTSManagerTests(unittest.TestCase):
             with tempfile.TemporaryDirectory() as temp_dir:
                 manager = TTSManager(
                     settings=_settings(
-                        cache_path=str(Path(temp_dir) / "voice_synth_cache.db"),
+                        cache_path=str(Path(temp_dir) / "voice_conductor_cache.db"),
                         provider_chain=["fake"],
                     ),
                 )
 
                 audio = manager.synthesize("hello")
+                manager.close()
         finally:
             unregister_provider("fake")
 
@@ -603,8 +608,8 @@ class TTSManagerTests(unittest.TestCase):
                 manager = TTSManager(
                     settings=settings_from_dict(
                         {
-                            "voice_synth": {
-                                "cache": {"path": str(Path(temp_dir) / "voice_synth_cache.db")},
+                            "voice_conductor": {
+                                "cache": {"path": str(Path(temp_dir) / "voice_conductor_cache.db")},
                                 "provider_chain": ["typed_fake"],
                             },
                             "providers": {
@@ -618,6 +623,7 @@ class TTSManagerTests(unittest.TestCase):
                 )
 
                 audio = manager.synthesize("hello")
+                manager.close()
         finally:
             unregister_provider_config("typed_fake")
             unregister_provider("typed_fake")
@@ -635,7 +641,7 @@ class TTSManagerTests(unittest.TestCase):
         elevenlabs = FakeProvider("elevenlabs", available=True)
         with tempfile.TemporaryDirectory() as temp_dir:
             manager = TTSManager(
-                settings=_settings(cache_path=str(Path(temp_dir) / "voice_synth_cache.db")),
+                settings=_settings(cache_path=str(Path(temp_dir) / "voice_conductor_cache.db")),
                 providers={
                     "azure": azure,
                     "elevenlabs": elevenlabs,
@@ -644,6 +650,7 @@ class TTSManagerTests(unittest.TestCase):
             )
 
             audio = manager.synthesize("hello")
+            manager.close()
 
         self.assertEqual(audio.provider, "elevenlabs")
         self.assertEqual(elevenlabs.calls, [("hello", None)])
@@ -656,7 +663,7 @@ class TTSManagerTests(unittest.TestCase):
         elevenlabs = FakeProvider("elevenlabs", available=False)
         with tempfile.TemporaryDirectory() as temp_dir:
             manager = TTSManager(
-                settings=_settings(cache_path=str(Path(temp_dir) / "voice_synth_cache.db")),
+                settings=_settings(cache_path=str(Path(temp_dir) / "voice_conductor_cache.db")),
                 providers={
                     "azure": azure,
                     "elevenlabs": elevenlabs,
@@ -665,9 +672,10 @@ class TTSManagerTests(unittest.TestCase):
             )
 
             audio = manager.synthesize("hello")
+            manager.close()
 
         self.assertEqual(audio.provider, "kokoro")
-        self.assertEqual(manager.settings.voice_synth.default_provider, "kokoro")
+        self.assertEqual(manager.settings.voice_conductor.default_provider, "kokoro")
         self.assertEqual(elevenlabs.calls, [])
         self.assertEqual(kokoro.calls, [("hello", None)])
         self.assertEqual(azure.calls, [])
@@ -678,7 +686,7 @@ class TTSManagerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             manager = TTSManager(
                 settings=_settings(
-                    cache_path=str(Path(temp_dir) / "voice_synth_cache.db"),
+                    cache_path=str(Path(temp_dir) / "voice_conductor_cache.db"),
                     provider_chain=["elevenlabs", "azure"],
                     default_provider="azure",
                 ),
@@ -689,8 +697,9 @@ class TTSManagerTests(unittest.TestCase):
             )
 
             audio = manager.synthesize("hello")
+            manager.close()
 
-        self.assertEqual(manager.settings.voice_synth.default_provider, "azure")
+        self.assertEqual(manager.settings.voice_conductor.default_provider, "azure")
         self.assertEqual(audio.provider, "elevenlabs")
         self.assertEqual(elevenlabs.calls, [("hello", None)])
         self.assertEqual(azure.calls, [])
@@ -702,7 +711,7 @@ class TTSManagerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             manager = TTSManager(
                 settings=_settings(
-                    cache_path=str(Path(temp_dir) / "voice_synth_cache.db"),
+                    cache_path=str(Path(temp_dir) / "voice_conductor_cache.db"),
                     provider_chain=["azure", "elevenlabs", "windows"],
                 ),
                 providers={
@@ -713,9 +722,10 @@ class TTSManagerTests(unittest.TestCase):
             )
 
             audio = manager.synthesize("hello")
+            manager.close()
 
         self.assertEqual(audio.provider, "elevenlabs")
-        self.assertEqual(manager.settings.voice_synth.default_provider, "elevenlabs")
+        self.assertEqual(manager.settings.voice_conductor.default_provider, "elevenlabs")
         self.assertEqual(elevenlabs.calls, [("hello", None)])
         self.assertEqual(kokoro.calls, [])
         self.assertEqual(azure.calls, [])
@@ -728,7 +738,7 @@ class TTSManagerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             manager = TTSManager(
                 settings=_settings(
-                    cache_path=str(Path(temp_dir) / "voice_synth_cache.db"),
+                    cache_path=str(Path(temp_dir) / "voice_conductor_cache.db"),
                     provider_chain=["azure", "elevenlabs", "kokoro", "windows"],
                 ),
                 providers={
@@ -740,6 +750,7 @@ class TTSManagerTests(unittest.TestCase):
             )
 
             audio = manager.synthesize("hello")
+            manager.close()
 
         self.assertEqual(audio.provider, "windows")
         self.assertEqual(windows.calls, [("hello", None)])
@@ -748,7 +759,7 @@ class TTSManagerTests(unittest.TestCase):
         provider = FakeProvider("kokoro", available=True, default_voice="af_heart")
         with tempfile.TemporaryDirectory() as temp_dir:
             manager = TTSManager(
-                settings=_settings(cache_path=str(Path(temp_dir) / "voice_synth_cache.db")),
+                settings=_settings(cache_path=str(Path(temp_dir) / "voice_conductor_cache.db")),
                 providers={
                     "azure": FakeProvider("azure", available=False),
                     "elevenlabs": FakeProvider("elevenlabs", available=False),
@@ -759,6 +770,7 @@ class TTSManagerTests(unittest.TestCase):
 
             first = manager.synthesize("Need backup")
             second = manager.synthesize("need backup")
+            manager.close()
 
         self.assertEqual(provider.calls, [("Need backup", "af_heart")])
         self.assertEqual(first.voice, "af_heart")
@@ -768,7 +780,7 @@ class TTSManagerTests(unittest.TestCase):
         provider = FakeProvider("kokoro", available=True)
         with tempfile.TemporaryDirectory() as temp_dir:
             manager = TTSManager(
-                settings=_settings(cache_path=str(Path(temp_dir) / "voice_synth_cache.db")),
+                settings=_settings(cache_path=str(Path(temp_dir) / "voice_conductor_cache.db")),
                 providers={
                     "azure": FakeProvider("azure", available=False),
                     "elevenlabs": FakeProvider("elevenlabs", available=False),
@@ -779,6 +791,7 @@ class TTSManagerTests(unittest.TestCase):
 
             first = manager.synthesize("Need backup")
             second = manager.synthesize("need backup")
+            manager.close()
 
         self.assertEqual(provider.calls, [("Need backup", None)])
         self.assertEqual(first.text, "Need backup")
@@ -788,7 +801,7 @@ class TTSManagerTests(unittest.TestCase):
         provider = FakeProvider("kokoro", available=True)
         with tempfile.TemporaryDirectory() as temp_dir:
             manager = TTSManager(
-                settings=_settings(cache_path=str(Path(temp_dir) / "voice_synth_cache.db")),
+                settings=_settings(cache_path=str(Path(temp_dir) / "voice_conductor_cache.db")),
                 providers={
                     "azure": FakeProvider("azure", available=False),
                     "elevenlabs": FakeProvider("elevenlabs", available=False),
@@ -799,6 +812,7 @@ class TTSManagerTests(unittest.TestCase):
 
             manager.synthesize("Need backup", use_cache=False)
             manager.synthesize("Need backup", use_cache=False)
+            manager.close()
 
         self.assertEqual(provider.calls, [("Need backup", None), ("Need backup", None)])
 
@@ -806,7 +820,7 @@ class TTSManagerTests(unittest.TestCase):
         provider = FakeProvider("kokoro", available=True)
         with tempfile.TemporaryDirectory() as temp_dir:
             manager = TTSManager(
-                settings=_settings(cache_path=str(Path(temp_dir) / "voice_synth_cache.db")),
+                settings=_settings(cache_path=str(Path(temp_dir) / "voice_conductor_cache.db")),
                 providers={
                     "azure": FakeProvider("azure", available=False),
                     "elevenlabs": FakeProvider("elevenlabs", available=False),
@@ -818,6 +832,7 @@ class TTSManagerTests(unittest.TestCase):
             manager.synthesize("Need backup")
             manager.synthesize("Need backup", refresh_cache=True)
             manager.synthesize("Need backup")
+            manager.close()
 
         self.assertEqual(provider.calls, [("Need backup", None), ("Need backup", None)])
 
@@ -825,7 +840,7 @@ class TTSManagerTests(unittest.TestCase):
         provider = FakeProvider("kokoro", available=True)
         with tempfile.TemporaryDirectory() as temp_dir:
             manager = TTSManager(
-                settings=_settings(cache_path=str(Path(temp_dir) / "voice_synth_cache.db")),
+                settings=_settings(cache_path=str(Path(temp_dir) / "voice_conductor_cache.db")),
                 providers={
                     "azure": FakeProvider("azure", available=False),
                     "elevenlabs": FakeProvider("elevenlabs", available=False),
@@ -837,6 +852,7 @@ class TTSManagerTests(unittest.TestCase):
             manager.synthesize("Need backup")
             removed = manager.invalidate_synthesis_cache(text="Need backup")
             manager.synthesize("Need backup")
+            manager.close()
 
         self.assertEqual(removed, 1)
         self.assertEqual(provider.calls, [("Need backup", None), ("Need backup", None)])
@@ -850,7 +866,7 @@ class TTSManagerTests(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as temp_dir:
             manager = TTSManager(
-                settings=_settings(cache_path=str(Path(temp_dir) / "voice_synth_cache.db")),
+                settings=_settings(cache_path=str(Path(temp_dir) / "voice_conductor_cache.db")),
                 providers={
                     "azure": FakeProvider("azure", available=False),
                     "elevenlabs": provider,
@@ -861,6 +877,7 @@ class TTSManagerTests(unittest.TestCase):
 
             first = manager.synthesize("Team, rotate to B.")
             second = manager.synthesize("Team, rotate to B.")
+            manager.close()
 
         self.assertEqual(provider.calls, [("Team, rotate to B.", "voice-id-123")])
         self.assertEqual(first.voice, "Rachel")
@@ -875,12 +892,12 @@ class TTSManagerTests(unittest.TestCase):
             provider="test",
         )
         with tempfile.TemporaryDirectory() as temp_dir, patch(
-            "voice_synth.audio.devices._load_sounddevice",
+            "voice_conductor.audio.devices._load_sounddevice",
             return_value=FakeSoundDevice(),
         ):
             manager = TTSManager(
                 settings=_settings(
-                    cache_path=str(Path(temp_dir) / "voice_synth_cache.db"),
+                    cache_path=str(Path(temp_dir) / "voice_conductor_cache.db"),
                     speaker_device="Speakers",
                     mic_device="CABLE Input",
                 ),
@@ -902,11 +919,11 @@ class TTSManagerTests(unittest.TestCase):
 
     def test_manager_discovers_default_route_devices_on_construction(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir, patch(
-            "voice_synth.audio.devices._load_sounddevice",
+            "voice_conductor.audio.devices._load_sounddevice",
             return_value=FakeSoundDevice(),
         ):
             manager = TTSManager(
-                settings=_settings(cache_path=str(Path(temp_dir) / "voice_synth_cache.db")),
+                settings=_settings(cache_path=str(Path(temp_dir) / "voice_conductor_cache.db")),
                 providers={
                     "azure": FakeProvider("azure", available=False),
                     "elevenlabs": FakeProvider("elevenlabs", available=False),
@@ -923,8 +940,8 @@ class TTSManagerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             manager = TTSManager(
                 settings=Settings(
-                    voice_synth=VoiceSynthSettings(
-                        cache=CacheSettings(path=str(Path(temp_dir) / "voice_synth_cache.db")),
+                    voice_conductor=VoiceConductorSettings(
+                        cache=CacheSettings(path=str(Path(temp_dir) / "voice_conductor_cache.db")),
                         route_config=RouteConfig(
                             routes={
                                 "stream": AudioRoute(
@@ -952,7 +969,7 @@ class TTSManagerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             manager = TTSManager(
                 settings=_settings(
-                    cache_path=str(Path(temp_dir) / "voice_synth_cache.db"),
+                    cache_path=str(Path(temp_dir) / "voice_conductor_cache.db"),
                     speaker_device="Speakers",
                     mic_device="CABLE Input",
                 ),
@@ -965,7 +982,7 @@ class TTSManagerTests(unittest.TestCase):
             )
 
         replacement = RouteConfig.default(speaker="Headphones", mic="VB-Cable")
-        manager.settings.voice_synth.route_config = replacement
+        manager.settings.voice_conductor.route_config = replacement
 
         self.assertIs(manager._route_engine.route_config, replacement)
         self.assertEqual(manager._route_engine.route_config.get("speakers").device, "Headphones")
@@ -974,7 +991,7 @@ class TTSManagerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             manager = TTSManager(
                 settings=_settings(
-                    cache_path=str(Path(temp_dir) / "voice_synth_cache.db"),
+                    cache_path=str(Path(temp_dir) / "voice_conductor_cache.db"),
                     speaker_device="Old Speakers",
                     mic_device="Old Cable",
                 ),
@@ -1005,18 +1022,18 @@ class TTSManagerTests(unittest.TestCase):
             ),
         ])
 
-        self.assertIs(manager.settings.voice_synth.route_config, refreshed)
+        self.assertIs(manager.settings.voice_conductor.route_config, refreshed)
         self.assertIs(manager._route_engine.route_config, refreshed)
         self.assertEqual(refreshed.get("speakers").device, "Headphones")
         self.assertEqual(refreshed.get("mic").device, "CABLE Output")
 
     def test_manager_construction_keeps_synthesize_only_workflows_when_discovery_fails(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir, patch(
-            "voice_synth.audio.devices._load_sounddevice",
+            "voice_conductor.audio.devices._load_sounddevice",
             return_value=BrokenSoundDevice(),
         ):
             manager = TTSManager(
-                settings=_settings(cache_path=str(Path(temp_dir) / "voice_synth_cache.db")),
+                settings=_settings(cache_path=str(Path(temp_dir) / "voice_conductor_cache.db")),
                 providers={
                     "azure": FakeProvider("azure", available=False),
                     "elevenlabs": FakeProvider("elevenlabs", available=False),
@@ -1038,11 +1055,11 @@ class TTSManagerTests(unittest.TestCase):
             provider="test",
         )
         with tempfile.TemporaryDirectory() as temp_dir, patch(
-            "voice_synth.audio.devices._load_sounddevice",
+            "voice_conductor.audio.devices._load_sounddevice",
             return_value=FakeSoundDeviceNoVirtual(),
         ):
             manager = TTSManager(
-                settings=_settings(cache_path=str(Path(temp_dir) / "voice_synth_cache.db")),
+                settings=_settings(cache_path=str(Path(temp_dir) / "voice_conductor_cache.db")),
                 providers={
                     "azure": FakeProvider("azure", available=False),
                     "elevenlabs": FakeProvider("elevenlabs", available=False),
@@ -1061,12 +1078,12 @@ class TTSManagerTests(unittest.TestCase):
         provider = FakeProvider("kokoro", available=True)
         writer = RecordingWriter()
         with tempfile.TemporaryDirectory() as temp_dir, patch(
-            "voice_synth.audio.devices._load_sounddevice",
+            "voice_conductor.audio.devices._load_sounddevice",
             return_value=FakeSoundDevice(),
         ):
             manager = TTSManager(
                 settings=_settings(
-                    cache_path=str(Path(temp_dir) / "voice_synth_cache.db"),
+                    cache_path=str(Path(temp_dir) / "voice_conductor_cache.db"),
                     speaker_device="Speakers",
                     mic_device="CABLE Input",
                 ),
@@ -1080,6 +1097,7 @@ class TTSManagerTests(unittest.TestCase):
             manager._route_engine._audio_writer = writer
 
             result = manager.speak("push now", ["speakers", "mic"])
+            manager.close()
 
         self.assertEqual(provider.calls, [("push now", None)])
         self.assertEqual(result.routes, ["speakers", "mic"])
@@ -1096,12 +1114,12 @@ class TTSManagerTests(unittest.TestCase):
             on_playback_complete=lambda event: complete_events.append(event),
         )
         with tempfile.TemporaryDirectory() as temp_dir, patch(
-            "voice_synth.audio.devices._load_sounddevice",
+            "voice_conductor.audio.devices._load_sounddevice",
             return_value=FakeSoundDevice(),
         ):
             manager = TTSManager(
                 settings=_settings(
-                    cache_path=str(Path(temp_dir) / "voice_synth_cache.db"),
+                    cache_path=str(Path(temp_dir) / "voice_conductor_cache.db"),
                     speaker_device="Speakers",
                 ),
                 providers={
@@ -1114,6 +1132,7 @@ class TTSManagerTests(unittest.TestCase):
             manager._route_engine._audio_writer = writer
 
             result = manager.speak("push now", hooks=hooks)
+            manager.close()
 
         self.assertEqual(len(ready_events), 1)
         self.assertEqual(ready_events[0].routes, ["speakers"])
@@ -1126,12 +1145,12 @@ class TTSManagerTests(unittest.TestCase):
         writer = BlockingWriter()
         hooks = PlaybackHooks()
         with tempfile.TemporaryDirectory() as temp_dir, patch(
-            "voice_synth.audio.devices._load_sounddevice",
+            "voice_conductor.audio.devices._load_sounddevice",
             return_value=FakeSoundDevice(),
         ):
             manager = TTSManager(
                 settings=_settings(
-                    cache_path=str(Path(temp_dir) / "voice_synth_cache.db"),
+                    cache_path=str(Path(temp_dir) / "voice_conductor_cache.db"),
                     speaker_device="Speakers",
                 ),
                 providers={
@@ -1148,6 +1167,7 @@ class TTSManagerTests(unittest.TestCase):
             self.assertFalse(task.done())
             writer.release.set()
             result = task.result(timeout=2)
+            manager.close()
 
         self.assertEqual(provider.calls, [("push now", None)])
         self.assertEqual(result.routes, ["speakers"])
@@ -1162,12 +1182,12 @@ class TTSManagerTests(unittest.TestCase):
             provider="test",
         )
         with tempfile.TemporaryDirectory() as temp_dir, patch(
-            "voice_synth.audio.devices._load_sounddevice",
+            "voice_conductor.audio.devices._load_sounddevice",
             return_value=FakeSoundDevice(),
         ):
             manager = TTSManager(
                 settings=_settings(
-                    cache_path=str(Path(temp_dir) / "voice_synth_cache.db"),
+                    cache_path=str(Path(temp_dir) / "voice_conductor_cache.db"),
                     speaker_device="Speakers",
                     mic_device="CABLE Input",
                 ),
@@ -1203,12 +1223,12 @@ class TTSManagerTests(unittest.TestCase):
             provider="test",
         )
         with tempfile.TemporaryDirectory() as temp_dir, patch(
-            "voice_synth.audio.devices._load_sounddevice",
+            "voice_conductor.audio.devices._load_sounddevice",
             return_value=FakeSoundDevice(),
         ):
             manager = TTSManager(
                 settings=_settings(
-                    cache_path=str(Path(temp_dir) / "voice_synth_cache.db"),
+                    cache_path=str(Path(temp_dir) / "voice_conductor_cache.db"),
                     speaker_device="Speakers",
                 ),
                 providers={
@@ -1229,7 +1249,7 @@ class TTSManagerTests(unittest.TestCase):
     def test_unknown_provider_raises(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             manager = TTSManager(
-                settings=_settings(cache_path=str(Path(temp_dir) / "voice_synth_cache.db")),
+                settings=_settings(cache_path=str(Path(temp_dir) / "voice_conductor_cache.db")),
                 providers={
                     "azure": FakeProvider("azure", available=True),
                     "elevenlabs": FakeProvider("elevenlabs", available=False),
@@ -1244,7 +1264,7 @@ class TTSManagerTests(unittest.TestCase):
     def test_no_available_providers_raises(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             manager = TTSManager(
-                settings=_settings(cache_path=str(Path(temp_dir) / "voice_synth_cache.db")),
+                settings=_settings(cache_path=str(Path(temp_dir) / "voice_conductor_cache.db")),
                 providers={
                     "azure": FakeProvider("azure", available=False),
                     "elevenlabs": FakeProvider("elevenlabs", available=False),

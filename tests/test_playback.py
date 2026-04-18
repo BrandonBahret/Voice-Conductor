@@ -6,9 +6,9 @@ from unittest.mock import patch
 
 import numpy as np
 
-from voice_synth.audio.router import RouteConfig, _RoutePlaybackEngine
-from voice_synth.audio.playback import _SoundDeviceAudioWriter
-from voice_synth.types import AudioDevice, PlaybackHooks, SynthesizedAudio
+from voice_conductor.audio.router import RouteConfig, _RoutePlaybackEngine
+from voice_conductor.audio.playback import _SoundDeviceAudioWriter
+from voice_conductor.types import AudioDevice, PlaybackHooks, SynthesizedAudio
 
 
 class RecordingWriter:
@@ -318,7 +318,7 @@ class SoundDeviceAudioWriterTests(unittest.TestCase):
             default_samplerate=44100,
         )
 
-        with patch("voice_synth.audio.playback._load_sounddevice", return_value=sd):
+        with patch("voice_conductor.audio.playback._load_sounddevice", return_value=sd):
             writer(audio, device)
 
         self.assertEqual(sd.streams[0]["samplerate"], 16000)

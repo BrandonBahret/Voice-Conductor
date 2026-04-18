@@ -9,9 +9,9 @@ import struct
 import sys
 
 try:
-    from ascii_song_demo import NOTE_CHARS
+    from main import NOTE_CHARS
 except ModuleNotFoundError:  # pragma: no cover - package-style import fallback
-    from .ascii_song_demo import NOTE_CHARS
+    from .main import NOTE_CHARS
 
 
 PITCH_CLASS_TO_ASCII = {
@@ -31,18 +31,37 @@ PITCH_CLASS_TO_ASCII = {
 NOTE_NAME_TO_CHAR = {value: key for key, value in NOTE_CHARS.items()}
 TONE_VOICES = {
     "piano",
+    "electric_piano",
     "banjo",
     "bandoneon",
     "bass",
+    "electric_bass",
+    "synth_bass",
     "clarinet",
     "marimba",
+    "drum_kit",
     "oboe",
     "recorder",
     "tenor_sax",
+    "square_lead",
+    "synth_strings",
     "trumpet",
     "tuba",
 }
 TRACK_NAME_VOICE_HINTS = (
+    ("square_lead", "square_lead"),
+    ("square", "square_lead"),
+    ("synth_strings", "synth_strings"),
+    ("synthstrings", "synth_strings"),
+    ("strings", "synth_strings"),
+    ("synth_bass", "synth_bass"),
+    ("synthbass", "synth_bass"),
+    ("electric_bass", "electric_bass"),
+    ("electricbass", "electric_bass"),
+    ("electric_piano", "electric_piano"),
+    ("electricpiano", "electric_piano"),
+    ("e_piano", "electric_piano"),
+    ("epiano", "electric_piano"),
     ("trumpet", "trumpet"),
     ("trompete", "trumpet"),
     ("tuba", "tuba"),
@@ -58,9 +77,9 @@ TRACK_NAME_VOICE_HINTS = (
     ("fl_te", "recorder"),
     ("recorder", "recorder"),
     ("marimba", "marimba"),
-    ("drum", "marimba"),
-    ("perkussion", "marimba"),
-    ("percussion", "marimba"),
+    ("drum", "drum_kit"),
+    ("perkussion", "drum_kit"),
+    ("percussion", "drum_kit"),
     ("bass", "bass"),
     ("kontrabass", "bass"),
     ("banjo", "banjo"),
@@ -72,6 +91,68 @@ TRACK_NAME_VOICE_HINTS = (
     ("akkordeon", "bandoneon"),
     ("bandoneon", "bandoneon"),
 )
+PROGRAM_VOICE_HINTS = {
+    4: "electric_piano",
+    5: "electric_piano",
+    6: "electric_piano",
+    32: "bass",
+    33: "electric_bass",
+    34: "electric_bass",
+    35: "electric_bass",
+    38: "synth_bass",
+    39: "synth_bass",
+    48: "synth_strings",
+    49: "synth_strings",
+    50: "synth_strings",
+    51: "synth_strings",
+    56: "trumpet",
+    57: "trumpet",
+    58: "tuba",
+    64: "tenor_sax",
+    65: "tenor_sax",
+    66: "tenor_sax",
+    67: "tenor_sax",
+    68: "oboe",
+    69: "oboe",
+    70: "oboe",
+    71: "clarinet",
+    72: "recorder",
+    73: "recorder",
+    74: "recorder",
+    75: "recorder",
+    80: "square_lead",
+    81: "square_lead",
+    82: "square_lead",
+    83: "square_lead",
+    84: "square_lead",
+    85: "square_lead",
+    86: "square_lead",
+    87: "square_lead",
+    105: "banjo",
+}
+PERCUSSION_NOTE_TO_ASCII = {
+    35: "z",
+    36: "z",
+    37: "s",
+    38: "s",
+    39: "s",
+    40: "s",
+    41: "b",
+    43: "b",
+    45: "b",
+    47: "b",
+    48: "b",
+    50: "b",
+    42: "r",
+    44: "r",
+    46: "r",
+    49: "y",
+    51: "y",
+    52: "y",
+    55: "y",
+    57: "y",
+    59: "y",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -82,8 +163,6 @@ class MidiAsciiTrack:
     notation: str
     events: int
     source_name: str = ""
-    arrangement_role: str = "primary"
-    arrangement_gain: float = 1.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -95,7 +174,7 @@ class MidiAsciiSong:
     tracks: tuple[MidiAsciiTrack, ...]
 
     def as_voice_map(self) -> dict[str, str]:
-        """Return tracks in the dictionary shape used by ``ascii_song_demo``."""
+        """Return tracks in the dictionary shape used by ``main``."""
 
         return {track.name: track.notation for track in self.tracks}
 
@@ -106,6 +185,8 @@ class _MidiInterval:
     start_tick: int
     end_tick: int
     volume: float
+    channel: int = 0
+    program: int | None = None
 
 
 def convert_midi_to_ascii(
@@ -128,6 +209,7 @@ def convert_midi_to_ascii(
     default so the generated notation is immediately playable.
     """
 
+    _ = emphasize_primary_voices
     data = Path(midi_path).read_bytes()
     ticks_per_beat, raw_tracks, first_bpm = _read_midi_file(data)
     range_start_tick, range_end_tick = _measure_range_to_ticks(
@@ -138,31 +220,21 @@ def convert_midi_to_ascii(
     )
     tracks: list[MidiAsciiTrack] = []
     voice_counts: dict[str, int] = {}
-    track_voice_pairs = [
-        (
-            track_name,
-            _slice_intervals(
-                intervals,
-                start_tick=range_start_tick,
-                end_tick=range_end_tick,
-            ),
-            midi_track_name_to_voice(track_name),
+    grouped_tracks = []
+    for track_index, (track_name, intervals) in enumerate(raw_tracks, start=1):
+        sliced = _slice_intervals(
+            intervals,
+            start_tick=range_start_tick,
+            end_tick=range_end_tick,
         )
-        for track_name, intervals in raw_tracks
-    ]
-    has_primary_voice = any(
-        _is_primary_voice(voice_name)
-        for _track_name, _intervals, voice_name in track_voice_pairs
-    )
-    for track_index, (track_name, intervals, base_voice_name) in enumerate(
-        track_voice_pairs, start=1
-    ):
-        arrangement_role = _arrangement_role_for_voice(
-            base_voice_name,
-            emphasize_primary_voices=emphasize_primary_voices,
-            has_primary_voice=has_primary_voice,
+        grouped_tracks.extend(
+            _group_intervals_by_voice(
+                track_name or f"track_{track_index}",
+                sliced,
+            )
         )
-        arrangement_gain = _arrangement_gain_for_role(arrangement_role)
+
+    for track_name, intervals, base_voice_name in grouped_tracks:
         notation, event_count = _intervals_to_notation(
             intervals,
             bpm=first_bpm,
@@ -170,7 +242,7 @@ def convert_midi_to_ascii(
             quantize=quantize,
             beats_per_bar=beats_per_bar,
             transpose_to_range=transpose_to_range,
-            track_gain=arrangement_gain,
+            percussion=base_voice_name == "drum_kit",
             include_origin_boundary=range_start_tick is not None,
             notation_end_tick=(
                 range_end_tick - (range_start_tick or 0)
@@ -188,9 +260,7 @@ def convert_midi_to_ascii(
                     name=voice_name,
                     notation=notation,
                     events=event_count,
-                    source_name=track_name or f"track_{track_index}",
-                    arrangement_role=arrangement_role,
-                    arrangement_gain=arrangement_gain,
+                    source_name=track_name,
                 )
             )
     return MidiAsciiSong(
@@ -232,45 +302,69 @@ def midi_track_name_to_voice(name: str) -> str:
     return "piano"
 
 
-def _is_primary_voice(voice_name: str) -> bool:
-    return voice_name == "banjo"
+def midi_program_to_voice(program: int | None, *, channel: int | None = None) -> str:
+    """Return the closest playable voice for a MIDI program and channel."""
+
+    if channel == 9:
+        return "drum_kit"
+    if program is None:
+        return "piano"
+    return PROGRAM_VOICE_HINTS.get(int(program), "piano")
 
 
-def _arrangement_role_for_voice(
-    voice_name: str,
-    *,
-    emphasize_primary_voices: bool,
-    has_primary_voice: bool,
-) -> str:
-    if not emphasize_primary_voices or not has_primary_voice:
-        return "primary"
-    if _is_primary_voice(voice_name):
-        return "primary"
-    return "secondary"
+def _group_intervals_by_voice(
+    track_name: str,
+    intervals: list[_MidiInterval],
+) -> list[tuple[str, list[_MidiInterval], str]]:
+    if not intervals:
+        return []
+
+    named_voice = midi_track_name_to_voice(track_name)
+    groups: dict[tuple[int, int | None, str], list[_MidiInterval]] = {}
+    for interval in intervals:
+        program_voice = midi_program_to_voice(
+            interval.program,
+            channel=interval.channel,
+        )
+        voice = program_voice if program_voice != "piano" else named_voice
+        key = (interval.channel, interval.program, voice)
+        groups.setdefault(key, []).append(interval)
+
+    output = []
+    for channel, program, voice in sorted(
+        groups,
+        key=lambda item: (item[0], -1 if item[1] is None else item[1], item[2]),
+    ):
+        source_name = _source_track_label(
+            track_name,
+            channel=channel,
+            program=program,
+        )
+        output.append((source_name, groups[(channel, program, voice)], voice))
+    return output
 
 
-def _arrangement_gain_for_role(role: str) -> float:
-    if role == "secondary":
-        return 0.55
-    return 1.0
+def _source_track_label(track_name: str, *, channel: int, program: int | None) -> str:
+    label = track_name.strip()
+    if label and not label.startswith("track_"):
+        return label
+    if channel == 9:
+        return "channel_10"
+    if program is None:
+        return f"channel_{channel + 1}"
+    return f"channel_{channel + 1}_program_{program + 1}"
 
 
 def format_midi_ascii_song(song: MidiAsciiSong) -> str:
     """Format a converted song as copy-pasteable Python source."""
 
     lines = [
-        "# Paste this into ascii_song_demo.py's song dictionary, or import it.",
+        "# Paste this into main.py's song dictionary, or import it.",
         "song = {",
     ]
     for track in song.tracks:
         if track.source_name and track.source_name != track.name:
             lines.append(f"    # MIDI track: {track.source_name}")
-        if track.arrangement_role != "primary":
-            lines.append(
-                "    # Arrangement: "
-                f"{track.arrangement_role}, "
-                f"gain x{_format_number(track.arrangement_gain)}"
-            )
         lines.append(f"    {track.name!r}: {track.notation!r},")
     lines.append("}")
     return "\n".join(lines)
@@ -324,7 +418,8 @@ def _read_track(payload: bytes) -> tuple[str, list[_MidiInterval], list[float]]:
     tempos: list[float] = []
     channel_volume = [1.0] * 16
     channel_expression = [1.0] * 16
-    active: dict[tuple[int, int], list[tuple[int, float]]] = {}
+    channel_program: list[int | None] = [None] * 16
+    active: dict[tuple[int, int], list[tuple[int, float, int | None]]] = {}
     intervals: list[_MidiInterval] = []
 
     while cursor < len(payload):
@@ -374,6 +469,8 @@ def _read_track(payload: bytes) -> tuple[str, list[_MidiInterval], list[float]]:
                 channel_volume[channel] = value
             else:
                 channel_expression[channel] = value
+        elif event_type == 0xC0:
+            channel_program[channel] = event_data[0]
         elif event_type == 0x90 and event_data[1] > 0:
             note_volume = (
                 (event_data[1] / 127.0)
@@ -381,12 +478,12 @@ def _read_track(payload: bytes) -> tuple[str, list[_MidiInterval], list[float]]:
                 * channel_expression[channel]
             )
             active.setdefault((channel, event_data[0]), []).append(
-                (tick, note_volume)
+                (tick, note_volume, channel_program[channel])
             )
         elif event_type in {0x80, 0x90}:
             starts = active.get((channel, event_data[0]))
             if starts:
-                start_tick, note_volume = starts.pop(0)
+                start_tick, note_volume, program = starts.pop(0)
                 if tick > start_tick:
                     intervals.append(
                         _MidiInterval(
@@ -394,6 +491,8 @@ def _read_track(payload: bytes) -> tuple[str, list[_MidiInterval], list[float]]:
                             start_tick=start_tick,
                             end_tick=tick,
                             volume=note_volume,
+                            channel=channel,
+                            program=program,
                         )
                     )
 
@@ -463,6 +562,8 @@ def _slice_intervals(
                 start_tick=clipped_start - offset,
                 end_tick=clipped_end - offset,
                 volume=interval.volume,
+                channel=interval.channel,
+                program=interval.program,
             )
         )
     return sliced
@@ -476,7 +577,7 @@ def _intervals_to_notation(
     quantize: int,
     beats_per_bar: int,
     transpose_to_range: bool,
-    track_gain: float = 1.0,
+    percussion: bool = False,
     include_origin_boundary: bool = False,
     notation_end_tick: int | None = None,
 ) -> tuple[str, int]:
@@ -521,14 +622,17 @@ def _intervals_to_notation(
             merged.append((notes, beats, volume))
 
     tokens = []
-    if track_gain != 1.0:
-        tokens.append(f"^{_format_number(track_gain)}")
     tokens.append(f"@{_format_number(bpm)}")
     current_bar_beat = 0.0
     event_count = 0
     current_volume = 1.0
     for notes, beats, volume in merged:
-        token = _event_to_token(notes, beats, transpose_to_range=transpose_to_range)
+        token = _event_to_token(
+            notes,
+            beats,
+            transpose_to_range=transpose_to_range,
+            percussion=percussion,
+        )
         if token is None:
             continue
         if notes and volume != current_volume:
@@ -547,22 +651,52 @@ def _intervals_to_notation(
 
 
 def _event_to_token(
-    notes: tuple[int, ...], beats: float, *, transpose_to_range: bool
+    notes: tuple[int, ...],
+    beats: float,
+    *,
+    transpose_to_range: bool,
+    percussion: bool = False,
 ) -> str | None:
     duration = _format_duration(beats)
     if not notes:
         return f"-{duration}"
 
-    note_tokens = [
-        token
-        for note in notes
-        if (token := midi_note_to_ascii(note, transpose_to_range=transpose_to_range))
-    ]
+    if percussion:
+        note_tokens = [
+            token for note in notes if (token := midi_percussion_note_to_ascii(note))
+        ]
+    else:
+        note_tokens = [
+            token
+            for note in notes
+            if (
+                token := midi_note_to_ascii(
+                    note,
+                    transpose_to_range=transpose_to_range,
+                )
+            )
+        ]
     if not note_tokens:
         return None
+    note_tokens = sorted(set(note_tokens), key=note_tokens.index)
     if len(note_tokens) == 1:
         return f"{note_tokens[0]}{duration}"
     return f"[{''.join(note_tokens)}]{duration}"
+
+
+def midi_percussion_note_to_ascii(midi_note: int) -> str | None:
+    """Return the notation token for a common percussion MIDI note."""
+
+    note = int(midi_note)
+    if note in PERCUSSION_NOTE_TO_ASCII:
+        return PERCUSSION_NOTE_TO_ASCII[note]
+    if 35 <= note <= 40:
+        return "s"
+    if 41 <= note <= 50:
+        return "b"
+    if 51 <= note <= 59:
+        return "y"
+    return None
 
 
 def _quantize_beats(beats: float, *, quantize: int) -> float:

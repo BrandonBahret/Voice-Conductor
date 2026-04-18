@@ -7,8 +7,8 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from voice_synth.audio.devices import find_output_device, list_output_devices
-from voice_synth.exceptions import DeviceResolutionError
+from voice_conductor.audio.devices import find_output_device, list_output_devices
+from voice_conductor.exceptions import DeviceResolutionError
 
 
 class FakeSoundDevice:
@@ -87,7 +87,7 @@ class DuplicateWindowsSpeakerSoundDevice:
 
 class DeviceTests(unittest.TestCase):
     def _list_output_devices(self, sd) -> list:
-        with patch("voice_synth.audio.devices._load_sounddevice", return_value=sd):
+        with patch("voice_conductor.audio.devices._load_sounddevice", return_value=sd):
             return list_output_devices()
 
     def test_list_output_devices_marks_virtual_cable(self) -> None:

@@ -4,16 +4,16 @@ This guide routes synthesized speech into any voice chat app with Voicemeeter Ba
 
 ## Device Direction
 
-`voice-synth` plays to Windows playback devices. Voicemeeter names can be confusing:
+VoiceConductor plays to Windows playback devices. Voicemeeter names can be confusing:
 
-- `VoiceMeeter ... Input` is the playback side that `voice-synth` should use.
+- `VoiceMeeter ... Input` is the playback side that VoiceConductor should use.
 - `VoiceMeeter ... Output` and `VoiceMeeter Out B*` are recording devices that your voice chat app should use.
 
 If you pass a recording-side Voicemeeter name such as `VoiceMeeter Aux Output` or `VoiceMeeter Out B2`, the device resolver maps it back to the matching playback-side `VoiceMeeter Aux Input` when possible.
 
 ## Recommended Virtual Mic Path
 
-- `voice-synth` route: `VoiceMeeter Aux Input (VB-Audio VoiceMeeter AUX VAIO)`
+- VoiceConductor route: `VoiceMeeter Aux Input (VB-Audio VoiceMeeter AUX VAIO)`
 - Voicemeeter bus: `B2`
 - voice chat input: `VoiceMeeter Aux Output (VB-Audio VoiceMeeter AUX VAIO)` or `VoiceMeeter Out B2`
 
@@ -22,13 +22,13 @@ That keeps TTS on the AUX strip instead of mixing it with desktop audio on the m
 ## Install Audio Support
 
 ```console
-pip install voice-synth
+pip install VoiceConductor
 ```
 
 Use this if you also want Kokoro:
 
 ```console
-pip install "voice-synth[kokoro]"
+pip install "VoiceConductor[kokoro]"
 ```
 
 ## Configure Routes
@@ -41,7 +41,7 @@ Most setups do not need route config. `TTSManager()` creates two routes automati
 Start with the default manager API:
 
 ```python
-from voice_synth import TTSManager
+from voice_conductor import TTSManager
 
 tts = TTSManager()
 tts.speak("Testing the virtual mic.", routes="mic")
@@ -50,11 +50,11 @@ tts.speak("Testing the virtual mic.", routes="mic")
 Check what the package selected:
 
 ```python
-from voice_synth import TTSManager
+from voice_conductor import TTSManager
 
 tts = TTSManager()
-print(tts.settings.voice_synth.route_config.get("speakers").device)
-print(tts.settings.voice_synth.route_config.get("mic").device)
+print(tts.settings.voice_conductor.route_config.get("speakers").device)
+print(tts.settings.voice_conductor.route_config.get("mic").device)
 ```
 
 Route to speakers and mic:
@@ -72,14 +72,14 @@ tts.refresh_audio_devices()
 Only set devices explicitly if auto-detection chooses the wrong endpoint:
 
 ```python
-from voice_synth import RouteConfig, Settings, TTSManager, VoiceSynthSettings
+from voice_conductor import RouteConfig, Settings, TTSManager, VoiceConductorSettings
 
 routes = RouteConfig(
     speaker_device="Speakers",
     mic_device="VoiceMeeter Aux Input (VB-Audio VoiceMeeter AUX VAIO)",
 )
 
-tts = TTSManager(settings=Settings(voice_synth=VoiceSynthSettings(route_config=routes)))
+tts = TTSManager(settings=Settings(voice_conductor=VoiceConductorSettings(route_config=routes)))
 tts.speak("Testing the virtual mic.", routes="mic")
 ```
 
@@ -116,7 +116,7 @@ VoiceMeeter Out B2
 ## Verify Devices
 
 ```python
-from voice_synth import TTSManager
+from voice_conductor import TTSManager
 
 tts = TTSManager()
 for device in tts.list_output_devices():
@@ -132,12 +132,12 @@ Look for the Voicemeeter AUX input device with `virtual=True`.
 
 ## Smoke Test
 
-Run these snippets from Python after installing `voice-synth`.
+Run these snippets from Python after installing VoiceConductor.
 
 Route speech to the virtual mic:
 
 ```python
-from voice_synth import TTSManager
+from voice_conductor import TTSManager
 
 tts = TTSManager()
 result = tts.speak("Testing the virtual mic.", routes="mic")
@@ -148,7 +148,7 @@ print("mic device:", result.devices["mic"].name)
 Named route:
 
 ```python
-from voice_synth import TTSManager
+from voice_conductor import TTSManager
 
 tts = TTSManager()
 audio = tts.synthesize_voice("Testing the virtual mic.")
@@ -161,7 +161,7 @@ for name, device in result.devices.items():
 ## Push To Talk Hooks
 
 ```python
-from voice_synth import PlaybackHooks, TTSManager
+from voice_conductor import PlaybackHooks, TTSManager
 
 tts = TTSManager()
 
@@ -182,7 +182,7 @@ tts.speak(
 Reinstall the package with its base dependencies:
 
 ```console
-pip install --upgrade --force-reinstall voice-synth
+pip install --upgrade --force-reinstall VoiceConductor
 ```
 
 `No virtual cable output device was found`
@@ -199,4 +199,4 @@ Make sure the desktop audio strip is not routed to `B2`. Keep `B2` on for the TT
 
 `Voice chat hears nothing`
 
-Check that `voice-synth` plays to the AUX input, the AUX strip routes to `B2`, and your voice chat app listens on the AUX output or `Out B2`.
+Check that VoiceConductor plays to the AUX input, the AUX strip routes to `B2`, and your voice chat app listens on the AUX output or `Out B2`.

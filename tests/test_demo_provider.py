@@ -6,14 +6,14 @@ import unittest
 
 import numpy as np
 
-from voice_synth import (
+from voice_conductor import (
     CacheSettings,
     DemoProvider,
     DemoProviderSettings,
     ProviderSettings,
     Settings,
     TTSManager,
-    VoiceSynthSettings,
+    VoiceConductorSettings,
     settings_from_dict,
     settings_to_dict,
 )
@@ -53,7 +53,7 @@ class DemoProviderTests(unittest.TestCase):
     def test_synthesize_records_monotonic_word_timing(self) -> None:
         text = (
             "Welcome aboard, commander. This is your ship's computer speaking. "
-            "Let's test the voice synthesis system with this phrase."
+            "Let's test the voice conductoresis system with this phrase."
         )
 
         audio = self.provider.synthesize(text, voice="demo:animalese")
@@ -144,9 +144,9 @@ class DemoProviderTests(unittest.TestCase):
     def test_manager_can_use_registered_builtin_demo_provider(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             settings = Settings(
-                voice_synth=VoiceSynthSettings(
+                voice_conductor=VoiceConductorSettings(
                     provider_chain=["demo"],
-                    cache=CacheSettings(path=str(Path(temp_dir) / "voice_synth_cache.db")),
+                    cache=CacheSettings(path=str(Path(temp_dir) / "voice_conductor_cache.db")),
                 ),
                 providers=ProviderSettings(
                     demo=DemoProviderSettings(default_voice="robot", speed=1.2),
@@ -154,6 +154,7 @@ class DemoProviderTests(unittest.TestCase):
             )
             manager = TTSManager(settings=settings)
             audio = manager.synthesize("hello from the demo provider")
+            manager.close()
 
         self.assertEqual(audio.provider, "demo")
         self.assertEqual(audio.voice, "demo:robot")

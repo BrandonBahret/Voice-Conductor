@@ -11,15 +11,15 @@ import json
 from typing import Any
 from urllib import error, parse, request
 
-from voice_synth.api_cache import APICache
-from voice_synth.api_cache import build_scoped_cache_key
-from voice_synth.api_cache import ELEVENLABS_MODEL_LIST_TTL_SECONDS
-from voice_synth.api_cache import ELEVENLABS_VOICE_LIST_TTL_SECONDS
-from voice_synth.config import Settings
-from voice_synth.exceptions import ConfigurationError, ProviderError
-from voice_synth.providers.base import TTSProvider, settings_from_provider_or_arg
-from voice_synth.types import SynthesizedAudio, VoiceInfo
-from voice_synth.voice_keys import normalize_voice_key
+from voice_conductor.api_cache import APICache
+from voice_conductor.api_cache import build_scoped_cache_key
+from voice_conductor.api_cache import ELEVENLABS_MODEL_LIST_TTL_SECONDS
+from voice_conductor.api_cache import ELEVENLABS_VOICE_LIST_TTL_SECONDS
+from voice_conductor.config import Settings
+from voice_conductor.exceptions import ConfigurationError, ProviderError
+from voice_conductor.providers.base import TTSProvider, settings_from_provider_or_arg
+from voice_conductor.types import SynthesizedAudio, VoiceInfo
+from voice_conductor.voice_keys import normalize_voice_key
 
 
 class ElevenLabsProvider(TTSProvider):
@@ -31,7 +31,7 @@ class ElevenLabsProvider(TTSProvider):
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self._provider_settings = settings.providers.elevenlabs
-        self._cache_settings = settings.voice_synth.cache
+        self._cache_settings = settings.voice_conductor.cache
         self._api_cache = APICache(self.name, self._cache_settings.api_dir)
 
     def is_available(self) -> bool:
@@ -102,7 +102,7 @@ class ElevenLabsProvider(TTSProvider):
         return {
             "xi-api-key": self._require_config(),
             "Content-Type": "application/json",
-            "User-Agent": "voice-synth",
+            "User-Agent": "VoiceConductor",
         }
 
     def _api_cache_ttl(self, default_ttl_seconds: int) -> int:

@@ -1,6 +1,6 @@
 # General architecture
 
-`voice-synth` is organized around one high-level object, a small set of settings dataclasses, pluggable provider adapters, and shared audio/playback types. Most applications only need `TTSManager`, but the lower-level pieces are exported so host apps can customize provider selection, audio routing, and provider registration.
+VoiceConductor is organized around one high-level object, a small set of settings dataclasses, pluggable provider adapters, and shared audio/playback types. Most applications only need `TTSManager`, but the lower-level pieces are exported so host apps can customize provider selection, audio routing, and provider registration.
 
 ## TTSManager
 
@@ -14,10 +14,10 @@
 The common path is:
 
 ```python
-from voice_synth import TTSManager
+from voice_conductor import TTSManager
 
 tts = TTSManager()
-tts.speak("Hello from voice-synth.", routes=["speakers", "mic"])
+tts.speak("Hello from VoiceConductor.", routes=["speakers", "mic"])
 ```
 
 `speak()` synthesizes and plays in one call. `synthesize_voice()` produces a `SynthesizedAudio` object without playing it, and `route()` plays an existing audio object:
@@ -42,14 +42,14 @@ Useful manager methods:
 
 `Settings` is the complete configuration object consumed by `TTSManager`. It has two main sections:
 
-- `settings.voice_synth`: package-level behavior such as provider order, route config, and cache paths.
+- `settings.voice_conductor`: package-level behavior such as provider order, route config, and cache paths.
 - `settings.providers`: provider-specific credentials, voices, model choices, speed settings, and custom provider config.
 
-By default, `load_settings()` looks for `voice_synth.config.jsonc` or `voice_synth.config.json` in the current working directory. The file uses the same nested shape as the dataclasses:
+By default, `load_settings()` looks for `voice_conductor.config.jsonc` or `voice_conductor.config.json` in the current working directory. The file uses the same nested shape as the dataclasses:
 
 ```jsonc
 {
-  "voice_synth": {
+  "voice_conductor": {
     "default_provider": null,
     "provider_chain": ["elevenlabs", "kokoro", "azure", "windows"],
     "route_config": {
@@ -80,22 +80,22 @@ By default, `load_settings()` looks for `voice_synth.config.jsonc` or `voice_syn
 }
 ```
 
-`voice_synth.provider_chain` is the normal way to choose fallback order. `voice_synth.default_provider` can force one preferred provider to the front of the chain.
+`voice_conductor.provider_chain` is the normal way to choose fallback order. `voice_conductor.default_provider` can force one preferred provider to the front of the chain.
 
-`voice_synth.route_config.routes` maps route names to audio device preferences. The built-in route names are:
+`voice_conductor.route_config.routes` maps route names to audio device preferences. The built-in route names are:
 
 - `speakers`: defaults to the host default output device.
 - `mic`: prefers a virtual cable output, because chat apps receive that cable as a microphone input.
 
-`voice_synth.cache` controls two cache locations: the SQLite phrase cache used for generated audio and the provider metadata cache used for things like voice lists. `ttl_seconds` applies to provider metadata cache entries.
+`voice_conductor.cache` controls two cache locations: the SQLite phrase cache used for generated audio and the provider metadata cache used for things like voice lists. `ttl_seconds` applies to provider metadata cache entries.
 
 Settings can also be constructed directly:
 
 ```python
-from voice_synth import Settings, TTSManager, VoiceSynthSettings
+from voice_conductor import Settings, TTSManager, VoiceConductorSettings
 
 settings = Settings(
-    voice_synth=VoiceSynthSettings(provider_chain=["demo", "windows"]),
+    voice_conductor=VoiceConductorSettings(provider_chain=["demo", "windows"]),
 )
 
 tts = TTSManager(settings=settings)
@@ -140,7 +140,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from voice_synth import (
+from voice_conductor import (
     Settings,
     SynthesizedAudio,
     TTSManager,
@@ -149,7 +149,7 @@ from voice_synth import (
     register_provider_config,
     settings_from_dict,
 )
-from voice_synth.providers import TTSProvider
+from voice_conductor.providers import TTSProvider
 
 
 @dataclass(slots=True)
@@ -195,7 +195,7 @@ register_provider("local", LocalProvider)
 
 settings = settings_from_dict(
     {
-        "voice_synth": {"provider_chain": ["local"]},
+        "voice_conductor": {"provider_chain": ["local"]},
         "providers": {
             "local": {
                 "endpoint": "http://localhost:7000",
@@ -255,7 +255,7 @@ Important fields:
 `PlaybackHooks` lets callers observe playback lifecycle events:
 
 ```python
-from voice_synth import PlaybackHooks
+from voice_conductor import PlaybackHooks
 
 hooks = PlaybackHooks(
     on_audio_ready=lambda event: press_push_to_talk(),

@@ -5,9 +5,9 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any
 
-from voice_synth.config import Settings, load_settings
-from voice_synth.types import SynthesizedAudio, VoiceInfo
-from voice_synth.voice_keys import normalize_voice_key
+from voice_conductor.config import Settings, load_settings
+from voice_conductor.types import SynthesizedAudio, VoiceInfo
+from voice_conductor.voice_keys import normalize_voice_key
 
 
 def settings_from_provider_or_arg(

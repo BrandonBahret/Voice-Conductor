@@ -10,8 +10,8 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from voice_synth.config import Settings, settings_from_dict
-from voice_synth.providers.windows import WindowsSpeechProvider
+from voice_conductor.config import Settings, settings_from_dict
+from voice_conductor.providers.windows import WindowsSpeechProvider
 
 
 class RecordingWindowsSpeechProvider(WindowsSpeechProvider):

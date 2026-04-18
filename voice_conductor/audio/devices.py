@@ -11,8 +11,8 @@ from __future__ import annotations
 import re
 from typing import Any, NoReturn
 
-from voice_synth.exceptions import DependencyError, DeviceResolutionError
-from voice_synth.types import AudioDevice
+from voice_conductor.exceptions import DependencyError, DeviceResolutionError
+from voice_conductor.types import AudioDevice
 
 _VIRTUAL_CABLE_MARKERS = ("cable input", "vb-audio", "virtual cable", "voicemeeter")
 _HOSTAPI_PREFERENCE = {
@@ -52,7 +52,7 @@ def _load_sounddevice():
         import sounddevice as sd
     except ImportError as exc:
         raise DependencyError(
-            "Audio playback requires the 'sounddevice' package. Install it with 'pip install voice-synth'."
+            "Audio playback requires the 'sounddevice' package. Install it with 'pip install VoiceConductor'."
         ) from exc
     return sd
 
@@ -306,7 +306,7 @@ def _raise_missing_device(
         raise DeviceResolutionError(
             f"Could not find output device matching {identifier!r}. "
             f"Available virtual outputs: {available_virtual}. "
-            "Clear voice_synth.route_config.routes.mic.device to auto-select the first virtual output."
+            "Clear voice_conductor.route_config.routes.mic.device to auto-select the first virtual output."
         )
 
     raise DeviceResolutionError(f"Could not find output device matching {identifier!r}.")

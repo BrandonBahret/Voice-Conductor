@@ -6,15 +6,15 @@ import os
 import tempfile
 import unittest
 
-from voice_synth.api_cache import APICache
-from voice_synth.api_cache import AZURE_VOICE_LIST_TTL_SECONDS
-from voice_synth.api_cache import ELEVENLABS_MODEL_LIST_TTL_SECONDS
-from voice_synth.api_cache import ELEVENLABS_VOICE_LIST_TTL_SECONDS
-from voice_synth.api_cache import build_api_cache_path
-from voice_synth.api_cache import build_scoped_cache_key
-from voice_synth.config import _default_cache_path
-from voice_synth.config import _default_api_cache_dir
-from voice_synth.config import load_settings
+from voice_conductor.api_cache import APICache
+from voice_conductor.api_cache import AZURE_VOICE_LIST_TTL_SECONDS
+from voice_conductor.api_cache import ELEVENLABS_MODEL_LIST_TTL_SECONDS
+from voice_conductor.api_cache import ELEVENLABS_VOICE_LIST_TTL_SECONDS
+from voice_conductor.api_cache import build_api_cache_path
+from voice_conductor.api_cache import build_scoped_cache_key
+from voice_conductor.config import _default_cache_path
+from voice_conductor.config import _default_api_cache_dir
+from voice_conductor.config import load_settings
 
 
 class APICacheTests(unittest.TestCase):
@@ -29,13 +29,13 @@ class APICacheTests(unittest.TestCase):
             finally:
                 os.chdir(original_cwd)
 
-        self.assertEqual(default_cache_path, temp_path / "voice_synth_cache.db")
+        self.assertEqual(default_cache_path, temp_path / "voice_conductor_cache.db")
         self.assertEqual(default_api_dir, temp_path / "api-caches")
 
     def test_default_cache_paths_can_be_derived_from_custom_root(self) -> None:
         root = Path("runtime-cache")
 
-        self.assertEqual(Path(_default_cache_path(root)), root / "voice_synth_cache.db")
+        self.assertEqual(Path(_default_cache_path(root)), root / "voice_conductor_cache.db")
         self.assertEqual(Path(_default_api_cache_dir(root)), root / "api-caches")
 
     def test_build_api_cache_path_uses_api_name_subdirectory(self) -> None:
@@ -103,8 +103,8 @@ class APICacheTests(unittest.TestCase):
         original_cwd = Path.cwd()
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
-            (temp_path / "voice_synth.config.json").write_text(
-                '{"voice_synth":{"cache":{"api_dir":"custom-api-cache","ttl_seconds":"900"}}}',
+            (temp_path / "voice_conductor.config.json").write_text(
+                '{"voice_conductor":{"cache":{"api_dir":"custom-api-cache","ttl_seconds":"900"}}}',
                 encoding="utf-8",
             )
             os.chdir(temp_path)
@@ -113,5 +113,5 @@ class APICacheTests(unittest.TestCase):
             finally:
                 os.chdir(original_cwd)
 
-        self.assertEqual(settings.voice_synth.cache.api_dir, str(temp_path / "custom-api-cache"))
-        self.assertEqual(settings.voice_synth.cache.ttl_seconds, 900)
+        self.assertEqual(settings.voice_conductor.cache.api_dir, str(temp_path / "custom-api-cache"))
+        self.assertEqual(settings.voice_conductor.cache.ttl_seconds, 900)

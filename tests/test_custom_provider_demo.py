@@ -8,7 +8,7 @@ EXAMPLE_DIR = Path(__file__).resolve().parents[1] / "examples" / "custom_provide
 if str(EXAMPLE_DIR) not in sys.path:
     sys.path.insert(0, str(EXAMPLE_DIR))
 
-import ascii_song_demo as demo
+import main as demo
 import midi_to_ascii
 
 
@@ -22,14 +22,20 @@ def test_ascii_song_provider_exposes_instrument_voices() -> None:
 
     assert voices == [
         "tone:piano",
+        "tone:electric_piano",
         "tone:banjo",
         "tone:bandoneon",
         "tone:bass",
+        "tone:electric_bass",
+        "tone:synth_bass",
         "tone:clarinet",
         "tone:marimba",
+        "tone:drum_kit",
         "tone:oboe",
         "tone:recorder",
         "tone:tenor_sax",
+        "tone:square_lead",
+        "tone:synth_strings",
         "tone:trumpet",
         "tone:tuba",
     ]
@@ -52,6 +58,32 @@ def test_ascii_song_banjo_voice_uses_its_own_recipe() -> None:
     assert track.metadata["base_voice"] == "tone:banjo"
     assert track.frame_count > 0
     assert float(abs(track.samples).max()) > 0.0
+
+
+def test_ascii_song_synth_voices_render_audio() -> None:
+    manager = demo.build_manager()
+    try:
+        tracks = [
+            manager.synthesize_voice(
+                "a s d",
+                provider=demo.PROVIDER_NAME,
+                voice=voice,
+                use_cache=False,
+            )
+            for voice in ("electric_piano", "synth_bass", "square_lead", "drum_kit")
+        ]
+    finally:
+        demo.unregister_provider(demo.PROVIDER_NAME)
+        demo.unregister_provider_config(demo.PROVIDER_NAME)
+
+    assert [track.voice for track in tracks] == [
+        "tone:electric_piano",
+        "tone:synth_bass",
+        "tone:square_lead",
+        "tone:drum_kit",
+    ]
+    assert all(track.frame_count > 0 for track in tracks)
+    assert all(float(abs(track.samples).max()) > 0.0 for track in tracks)
 
 
 def test_ascii_song_secondary_parts_use_base_voice_recipe() -> None:
@@ -220,8 +252,19 @@ def test_midi_track_names_map_to_playable_tone_voices() -> None:
     assert midi_to_ascii.midi_track_name_to_voice("Banjo Begleitung") == "banjo"
     assert midi_to_ascii.midi_track_name_to_voice("Flöte") == "recorder"
     assert midi_to_ascii.midi_track_name_to_voice("Trompete") == "trumpet"
-    assert midi_to_ascii.midi_track_name_to_voice("Drums") == "marimba"
+    assert midi_to_ascii.midi_track_name_to_voice("Drums") == "drum_kit"
+    assert midi_to_ascii.midi_track_name_to_voice("Electric Piano") == "electric_piano"
+    assert midi_to_ascii.midi_track_name_to_voice("Synth Bass") == "synth_bass"
     assert midi_to_ascii.midi_track_name_to_voice("Bassoon") == "oboe"
+
+
+def test_midi_programs_map_to_playable_tone_voices() -> None:
+    assert midi_to_ascii.midi_program_to_voice(4) == "electric_piano"
+    assert midi_to_ascii.midi_program_to_voice(33) == "electric_bass"
+    assert midi_to_ascii.midi_program_to_voice(39) == "synth_bass"
+    assert midi_to_ascii.midi_program_to_voice(51) == "synth_strings"
+    assert midi_to_ascii.midi_program_to_voice(80) == "square_lead"
+    assert midi_to_ascii.midi_program_to_voice(25, channel=9) == "drum_kit"
 
 
 def test_convert_midi_to_ascii_suffixes_duplicate_playable_voices(
@@ -235,7 +278,7 @@ def test_convert_midi_to_ascii_suffixes_duplicate_playable_voices(
     assert [track.name for track in song.tracks] == ["banjo", "banjo_2"]
 
 
-def test_convert_midi_to_ascii_ducks_secondary_tracks_for_banjo_led_songs(
+def test_convert_midi_to_ascii_does_not_add_preset_gain_changes(
     tmp_path: Path,
 ) -> None:
     midi_path = tmp_path / "banjo-led.mid"
@@ -245,13 +288,36 @@ def test_convert_midi_to_ascii_ducks_secondary_tracks_for_banjo_led_songs(
     formatted = midi_to_ascii.format_midi_ascii_song(song)
 
     assert [track.name for track in song.tracks] == ["banjo", "recorder"]
-    assert [track.arrangement_role for track in song.tracks] == [
-        "primary",
-        "secondary",
-    ]
     assert song.tracks[0].notation == "@120 a"
-    assert song.tracks[1].notation == "^0.55 @120 d"
-    assert "# Arrangement: secondary, gain x0.55" in formatted
+    assert song.tracks[1].notation == "@120 d"
+    assert "Arrangement:" not in formatted
+    assert "gain x" not in formatted
+    assert not any(track.notation.startswith("^") for track in song.tracks)
+
+
+def test_convert_midi_to_ascii_splits_format_zero_channels_by_program(
+    tmp_path: Path,
+) -> None:
+    midi_path = tmp_path / "multi-channel.mid"
+    midi_path.write_bytes(_multi_channel_program_midi_file())
+
+    song = midi_to_ascii.convert_midi_to_ascii(midi_path, quantize=4)
+
+    assert [track.name for track in song.tracks] == [
+        "electric_piano",
+        "synth_bass",
+        "drum_kit",
+    ]
+    assert [track.source_name for track in song.tracks] == [
+        "channel_1_program_5",
+        "channel_3_program_40",
+        "channel_10",
+    ]
+    assert [track.notation for track in song.tracks] == [
+        "@120 a",
+        "@120 z",
+        "@120 z",
+    ]
 
 
 def _tiny_midi_file() -> bytes:
@@ -340,6 +406,37 @@ def _banjo_and_flute_midi_file() -> bytes:
         + len(second).to_bytes(4, "big")
         + second
     )
+
+
+def _multi_channel_program_midi_file() -> bytes:
+    header = b"MThd" + (6).to_bytes(4, "big") + b"\x00\x00\x00\x01\x01\xe0"
+    events = b"".join(
+        [
+            _varlen(0),
+            b"\xff\x51\x03\x07\xa1\x20",
+            _varlen(0),
+            b"\xc0\x04",
+            _varlen(0),
+            b"\xc2\x27",
+            _varlen(0),
+            b"\xc9\x19",
+            _varlen(0),
+            b"\x90\x3c\x7f",
+            _varlen(0),
+            b"\x92\x24\x7f",
+            _varlen(0),
+            b"\x99\x24\x7f",
+            _varlen(480),
+            b"\x80\x3c\x00",
+            _varlen(0),
+            b"\x82\x24\x00",
+            _varlen(0),
+            b"\x89\x24\x00",
+            _varlen(0),
+            b"\xff\x2f\x00",
+        ]
+    )
+    return header + b"MTrk" + len(events).to_bytes(4, "big") + events
 
 
 def _four_measure_midi_file() -> bytes:

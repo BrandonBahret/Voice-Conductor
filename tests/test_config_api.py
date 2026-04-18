@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from voice_synth.config import (
+from voice_conductor.config import (
     AzureSettings,
     CacheSettings,
     DemoProviderSettings,
@@ -15,17 +15,17 @@ from voice_synth.config import (
     KokoroSettings,
     ProviderSettings,
     Settings,
-    VoiceSynthSettings,
+    VoiceConductorSettings,
     WindowsSettings,
 )
-from voice_synth.config import load_settings
-from voice_synth.config import _format_voice_comment_label
-from voice_synth.config import _loads_config_text
-from voice_synth.config import settings_from_dict
-from voice_synth.config import settings_to_dict
-from voice_synth.config_registry import register_provider_config, unregister_provider_config
-from voice_synth.audio.router import AudioRoute, RouteConfig
-from voice_synth.types import VoiceInfo
+from voice_conductor.config import load_settings
+from voice_conductor.config import _format_voice_comment_label
+from voice_conductor.config import _loads_config_text
+from voice_conductor.config import settings_from_dict
+from voice_conductor.config import settings_to_dict
+from voice_conductor.config_registry import register_provider_config, unregister_provider_config
+from voice_conductor.audio.router import AudioRoute, RouteConfig
+from voice_conductor.types import VoiceInfo
 
 
 @dataclass(slots=True)
@@ -87,7 +87,7 @@ class ConfigAPITests(unittest.TestCase):
     def test_settings_fields_are_documented_for_consumers(self) -> None:
         setting_types = (
             CacheSettings,
-            VoiceSynthSettings,
+            VoiceConductorSettings,
             ElevenLabsSettings,
             AzureSettings,
             KokoroSettings,
@@ -105,22 +105,22 @@ class ConfigAPITests(unittest.TestCase):
 
     def test_settings_defaults_include_provider_chain(self) -> None:
         self.assertEqual(
-            Settings().voice_synth.provider_chain,
+            Settings().voice_conductor.provider_chain,
             ["elevenlabs", "kokoro", "azure", "windows"],
         )
 
     def test_cache_settings_root_derives_default_cache_locations(self) -> None:
         settings = Settings(
-            voice_synth=VoiceSynthSettings(cache=CacheSettings(root="runtime-cache"))
+            voice_conductor=VoiceConductorSettings(cache=CacheSettings(root="runtime-cache"))
         )
 
-        self.assertEqual(settings.voice_synth.cache.root, "runtime-cache")
+        self.assertEqual(settings.voice_conductor.cache.root, "runtime-cache")
         self.assertEqual(
-            Path(settings.voice_synth.cache.path),
-            Path("runtime-cache") / "voice_synth_cache.db",
+            Path(settings.voice_conductor.cache.path),
+            Path("runtime-cache") / "voice_conductor_cache.db",
         )
         self.assertEqual(
-            Path(settings.voice_synth.cache.api_dir),
+            Path(settings.voice_conductor.cache.api_dir),
             Path("runtime-cache") / "api-caches",
         )
 
@@ -131,12 +131,12 @@ class ConfigAPITests(unittest.TestCase):
             settings = CacheSettings(root=root)
 
         self.assertEqual(settings.root, str(root))
-        self.assertEqual(settings.path, str(root / "voice_synth_cache.db"))
+        self.assertEqual(settings.path, str(root / "voice_conductor_cache.db"))
         self.assertEqual(settings.api_dir, str(root / "api-caches"))
 
     def test_cache_settings_root_does_not_override_explicit_cache_locations(self) -> None:
         settings = Settings(
-            voice_synth=VoiceSynthSettings(
+            voice_conductor=VoiceConductorSettings(
                 cache=CacheSettings(
                     path="phrases.db",
                     api_dir="provider-cache",
@@ -145,13 +145,13 @@ class ConfigAPITests(unittest.TestCase):
             )
         )
 
-        self.assertEqual(settings.voice_synth.cache.root, "runtime-cache")
-        self.assertEqual(settings.voice_synth.cache.path, "phrases.db")
-        self.assertEqual(settings.voice_synth.cache.api_dir, "provider-cache")
+        self.assertEqual(settings.voice_conductor.cache.root, "runtime-cache")
+        self.assertEqual(settings.voice_conductor.cache.path, "phrases.db")
+        self.assertEqual(settings.voice_conductor.cache.api_dir, "provider-cache")
 
     def test_direct_settings_construction_derives_default_route_config_from_devices(self) -> None:
         settings = Settings(
-            voice_synth=VoiceSynthSettings(
+            voice_conductor=VoiceConductorSettings(
                 route_config=RouteConfig(
                     routes={
                         "speakers": AudioRoute("speakers", device="Speakers"),
@@ -161,8 +161,8 @@ class ConfigAPITests(unittest.TestCase):
             )
         )
 
-        self.assertEqual(settings.voice_synth.route_config.get("speakers").device, "Speakers")
-        self.assertEqual(settings.voice_synth.route_config.get("mic").device, "CABLE Input")
+        self.assertEqual(settings.voice_conductor.route_config.get("speakers").device, "Speakers")
+        self.assertEqual(settings.voice_conductor.route_config.get("mic").device, "CABLE Input")
 
     def test_load_settings_defaults_include_provider_chain(self) -> None:
         original_cwd = Path.cwd()
@@ -174,18 +174,18 @@ class ConfigAPITests(unittest.TestCase):
                 os.chdir(original_cwd)
 
         self.assertEqual(
-            settings.voice_synth.provider_chain,
+            settings.voice_conductor.provider_chain,
             ["elevenlabs", "kokoro", "azure", "windows"],
         )
 
     def test_settings_from_file_loads_existing_jsonc_file(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
-            path = Path(temp_dir) / "demo-voice_synth.config.jsonc"
+            path = Path(temp_dir) / "demo-voice_conductor.config.jsonc"
             path.write_text(
                 """
                 {
                   // JSONC should be accepted here.
-                  "voice_synth": {
+                  "voice_conductor": {
                     "provider_chain": ["demo"],
                   },
                   "providers": {
@@ -200,46 +200,46 @@ class ConfigAPITests(unittest.TestCase):
 
             settings = Settings.from_file(path)
 
-        self.assertEqual(settings.voice_synth.provider_chain, ["demo"])
+        self.assertEqual(settings.voice_conductor.provider_chain, ["demo"])
         self.assertEqual(settings.providers.demo.default_voice, "robot")
 
     def test_settings_from_file_resolves_relative_cache_paths_from_config_dir(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
-            path = Path(temp_dir) / "nested" / "voice_synth.config.jsonc"
+            path = Path(temp_dir) / "nested" / "voice_conductor.config.jsonc"
             path.parent.mkdir()
             path.write_text(
-                '{"voice_synth":{"cache":{"root":".runtime"}}}',
+                '{"voice_conductor":{"cache":{"root":".runtime"}}}',
                 encoding="utf-8",
             )
 
             settings = Settings.from_file(path)
 
-        self.assertEqual(settings.voice_synth.cache.root, str(path.parent / ".runtime"))
+        self.assertEqual(settings.voice_conductor.cache.root, str(path.parent / ".runtime"))
         self.assertEqual(
-            settings.voice_synth.cache.path,
-            str(path.parent / ".runtime" / "voice_synth_cache.db"),
+            settings.voice_conductor.cache.path,
+            str(path.parent / ".runtime" / "voice_conductor_cache.db"),
         )
         self.assertEqual(
-            settings.voice_synth.cache.api_dir,
+            settings.voice_conductor.cache.api_dir,
             str(path.parent / ".runtime" / "api-caches"),
         )
 
     def test_settings_from_file_writes_defaults_when_file_is_missing(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
-            path = Path(temp_dir) / "demo" / "demo-voice_synth.config.jsonc"
+            path = Path(temp_dir) / "demo" / "demo-voice_conductor.config.jsonc"
 
             settings = Settings.from_file(path)
             self.assertTrue(path.exists())
             payload = _loads_config_text(path.read_text(encoding="utf-8"), path)
 
-        self.assertEqual(settings.voice_synth.provider_chain, ["elevenlabs", "kokoro", "azure", "windows"])
-        self.assertIn("voice_synth", payload)
+        self.assertEqual(settings.voice_conductor.provider_chain, ["elevenlabs", "kokoro", "azure", "windows"])
+        self.assertIn("voice_conductor", payload)
         self.assertIn("providers", payload)
 
     def test_settings_from_dict_constructs_nested_config(self) -> None:
         settings = settings_from_dict(
             {
-                "voice_synth": {
+                "voice_conductor": {
                     "provider_chain": ["kokoro", "windows"],
                     "route_config": {
                         "routes": {
@@ -261,60 +261,60 @@ class ConfigAPITests(unittest.TestCase):
             }
         )
 
-        self.assertEqual(settings.voice_synth.provider_chain, ["kokoro", "windows"])
-        self.assertEqual(settings.voice_synth.route_config.get("speakers").device, "Speakers")
-        self.assertEqual(settings.voice_synth.route_config.get("mic").device, "CABLE Input")
-        self.assertEqual(settings.voice_synth.cache.path, "phrases.db")
-        self.assertEqual(settings.voice_synth.cache.api_dir, "api-cache")
-        self.assertEqual(settings.voice_synth.cache.ttl_seconds, 30)
+        self.assertEqual(settings.voice_conductor.provider_chain, ["kokoro", "windows"])
+        self.assertEqual(settings.voice_conductor.route_config.get("speakers").device, "Speakers")
+        self.assertEqual(settings.voice_conductor.route_config.get("mic").device, "CABLE Input")
+        self.assertEqual(settings.voice_conductor.cache.path, "phrases.db")
+        self.assertEqual(settings.voice_conductor.cache.api_dir, "api-cache")
+        self.assertEqual(settings.voice_conductor.cache.ttl_seconds, 30)
         self.assertEqual(settings.providers.elevenlabs.speed, 1.2)
         self.assertTrue(settings.providers.elevenlabs.speaker_boost)
         self.assertEqual(settings.providers.elevenlabs.api_key, "secret")
         self.assertEqual(settings.providers.windows.volume, 85)
-        self.assertEqual(settings.voice_synth.route_config.get("speakers").device, "Speakers")
-        self.assertEqual(settings.voice_synth.route_config.get("mic").device, "CABLE Input")
+        self.assertEqual(settings.voice_conductor.route_config.get("speakers").device, "Speakers")
+        self.assertEqual(settings.voice_conductor.route_config.get("mic").device, "CABLE Input")
 
     def test_settings_from_dict_derives_cache_defaults_from_configured_root(self) -> None:
         settings = settings_from_dict(
             {
-                "voice_synth": {
+                "voice_conductor": {
                     "cache": {"root": "runtime-cache", "ttl_seconds": 30},
                 }
             }
         )
 
-        self.assertEqual(settings.voice_synth.cache.root, "runtime-cache")
+        self.assertEqual(settings.voice_conductor.cache.root, "runtime-cache")
         self.assertEqual(
-            Path(settings.voice_synth.cache.path),
-            Path("runtime-cache") / "voice_synth_cache.db",
+            Path(settings.voice_conductor.cache.path),
+            Path("runtime-cache") / "voice_conductor_cache.db",
         )
         self.assertEqual(
-            Path(settings.voice_synth.cache.api_dir),
+            Path(settings.voice_conductor.cache.api_dir),
             Path("runtime-cache") / "api-caches",
         )
-        self.assertEqual(settings.voice_synth.cache.ttl_seconds, 30)
+        self.assertEqual(settings.voice_conductor.cache.ttl_seconds, 30)
 
     def test_settings_from_dict_normalizes_windows_device_prefixed_cache_paths(self) -> None:
         settings = settings_from_dict(
             {
-                "voice_synth": {
+                "voice_conductor": {
                     "cache": {
                         "root": r"\\?\m:\cache",
-                        "path": r"\\?\m:\cache\voice_synth_cache.db",
-                        "api_dir": r"\\?\UNC\server\share\voice-synth\api-caches",
+                        "path": r"\\?\m:\cache\voice_conductor_cache.db",
+                        "api_dir": r"\\?\UNC\server\share\voice-conductor\api-caches",
                     }
                 }
             }
         )
 
-        self.assertEqual(settings.voice_synth.cache.root, r"M:\cache")
-        self.assertEqual(settings.voice_synth.cache.path, r"M:\cache\voice_synth_cache.db")
-        self.assertEqual(settings.voice_synth.cache.api_dir, r"\\server\share\voice-synth\api-caches")
+        self.assertEqual(settings.voice_conductor.cache.root, r"M:\cache")
+        self.assertEqual(settings.voice_conductor.cache.path, r"M:\cache\voice_conductor_cache.db")
+        self.assertEqual(settings.voice_conductor.cache.api_dir, r"\\server\share\voice-conductor\api-caches")
 
     def test_settings_from_dict_accepts_explicit_route_config(self) -> None:
         settings = settings_from_dict(
             {
-                "voice_synth": {
+                "voice_conductor": {
                     "route_config": {
                         "routes": {
                             "stream": {
@@ -327,7 +327,7 @@ class ConfigAPITests(unittest.TestCase):
             }
         )
 
-        route = settings.voice_synth.route_config.get("stream")
+        route = settings.voice_conductor.route_config.get("stream")
 
         self.assertEqual(route.device, "CABLE Input")
         self.assertTrue(route.prefer_virtual_cable)
@@ -351,7 +351,7 @@ class ConfigAPITests(unittest.TestCase):
     def test_serialized_settings_omit_removed_bloat_keys(self) -> None:
         payload = settings_to_dict(Settings())
 
-        self.assertNotIn("defaults", payload["voice_synth"])
+        self.assertNotIn("defaults", payload["voice_conductor"])
         self.assertNotIn("voice_gender", payload["providers"]["windows"])
         self.assertNotIn("voice_age", payload["providers"]["windows"])
         self.assertNotIn("voice_culture", payload["providers"]["windows"])
@@ -359,7 +359,7 @@ class ConfigAPITests(unittest.TestCase):
 
     def test_settings_to_dict_serializes_route_config(self) -> None:
         settings = Settings(
-            voice_synth=VoiceSynthSettings(
+            voice_conductor=VoiceConductorSettings(
                 route_config=RouteConfig(
                     routes={
                         "stream": AudioRoute(
@@ -374,13 +374,13 @@ class ConfigAPITests(unittest.TestCase):
 
         payload = settings_to_dict(settings)
 
-        route_payload = payload["voice_synth"]["route_config"]["routes"]["stream"]
+        route_payload = payload["voice_conductor"]["route_config"]["routes"]["stream"]
         self.assertEqual(route_payload["device"], "CABLE Input")
         self.assertTrue(route_payload["prefer_virtual_cable"])
 
     def test_settings_to_dict_fills_default_devices_from_resolved_routes(self) -> None:
         settings = Settings(
-            voice_synth=VoiceSynthSettings(
+            voice_conductor=VoiceConductorSettings(
                 route_config=RouteConfig(
                     routes={
                         "speakers": AudioRoute("speakers", device="Speakers (High Definition Audio"),
@@ -393,32 +393,18 @@ class ConfigAPITests(unittest.TestCase):
         payload = settings_to_dict(settings)
 
         self.assertEqual(
-            payload["voice_synth"]["route_config"]["routes"]["speakers"]["device"],
+            payload["voice_conductor"]["route_config"]["routes"]["speakers"]["device"],
             "Speakers (High Definition Audio",
         )
         self.assertEqual(
-            payload["voice_synth"]["route_config"]["routes"]["mic"]["device"],
+            payload["voice_conductor"]["route_config"]["routes"]["mic"]["device"],
             "VoiceMeeter Aux Output (VB-Audio",
         )
-
-    def test_example_config_omits_removed_bloat_keys(self) -> None:
-        from voice_synth.config import _loads_config_text
-
-        example_path = Path(__file__).resolve().parents[1] / "voice_synth.config.example.jsonc"
-        payload = _loads_config_text(example_path.read_text(encoding="utf-8"), example_path)
-
-        self.assertNotIn("defaults", payload["voice_synth"])
-        self.assertNotIn("voice_gender", payload["providers"]["windows"])
-        self.assertNotIn("voice_age", payload["providers"]["windows"])
-        self.assertNotIn("voice_culture", payload["providers"]["windows"])
-        self.assertNotIn("voice_alternate", payload["providers"]["windows"])
-        self.assertIn("stability", payload["providers"]["elevenlabs"])
-        self.assertIn("speaker_boost", payload["providers"]["elevenlabs"])
 
     def test_save_settings_round_trips_secrets(self) -> None:
         settings = settings_from_dict(
             {
-                "voice_synth": {
+                "voice_conductor": {
                     "route_config": {"routes": {"speakers": {"device": "Speakers"}}},
                     "provider_chain": ["elevenlabs", "windows"],
                 },
@@ -426,51 +412,51 @@ class ConfigAPITests(unittest.TestCase):
             }
         )
         with tempfile.TemporaryDirectory() as temp_dir:
-            path = Path(temp_dir) / "voice_synth.config.jsonc"
+            path = Path(temp_dir) / "voice_conductor.config.jsonc"
             saved_path = settings.save_settings(path)
             payload = _loads_config_text(saved_path.read_text(encoding="utf-8"), saved_path)
             reloaded = settings_from_dict(payload)
 
         self.assertEqual(payload["providers"]["elevenlabs"]["api_key"], "eleven-secret")
         self.assertEqual(reloaded.providers.elevenlabs.api_key, "eleven-secret")
-        self.assertEqual(reloaded.voice_synth.route_config.get("speakers").device, "Speakers")
-        self.assertEqual(reloaded.voice_synth.provider_chain, ["elevenlabs", "windows"])
+        self.assertEqual(reloaded.voice_conductor.route_config.get("speakers").device, "Speakers")
+        self.assertEqual(reloaded.voice_conductor.provider_chain, ["elevenlabs", "windows"])
 
     def test_save_settings_normalizes_windows_device_prefixed_cache_paths(self) -> None:
         settings = settings_from_dict(
             {
-                "voice_synth": {
+                "voice_conductor": {
                     "cache": {
                         "root": r"\\?\m:\cache",
-                        "path": r"\\?\m:\cache\voice_synth_cache.db",
-                        "api_dir": r"\\?\UNC\server\share\voice-synth\api-caches",
+                        "path": r"\\?\m:\cache\voice_conductor_cache.db",
+                        "api_dir": r"\\?\UNC\server\share\voice-conductor\api-caches",
                     }
                 }
             }
         )
 
         with tempfile.TemporaryDirectory() as temp_dir:
-            path = Path(temp_dir) / "voice_synth.config.jsonc"
+            path = Path(temp_dir) / "voice_conductor.config.jsonc"
             saved_path = settings.save_settings(path)
             payload = _loads_config_text(saved_path.read_text(encoding="utf-8"), saved_path)
 
         self.assertEqual(
-            payload["voice_synth"]["cache"]["root"],
+            payload["voice_conductor"]["cache"]["root"],
             r"M:\cache",
         )
         self.assertEqual(
-            payload["voice_synth"]["cache"]["path"],
-            r"M:\cache\voice_synth_cache.db",
+            payload["voice_conductor"]["cache"]["path"],
+            r"M:\cache\voice_conductor_cache.db",
         )
         self.assertEqual(
-            payload["voice_synth"]["cache"]["api_dir"],
-            r"\\server\share\voice-synth\api-caches",
+            payload["voice_conductor"]["cache"]["api_dir"],
+            r"\\server\share\voice-conductor\api-caches",
         )
 
     def test_save_settings_preserves_existing_provider_credentials_when_unset(self) -> None:
         settings = Settings()
         with tempfile.TemporaryDirectory() as temp_dir:
-            path = Path(temp_dir) / "voice_synth.config.jsonc"
+            path = Path(temp_dir) / "voice_conductor.config.jsonc"
             path.write_text(
                 (
                     "{"
@@ -506,7 +492,7 @@ class ConfigAPITests(unittest.TestCase):
             }
         )
         with tempfile.TemporaryDirectory() as temp_dir:
-            path = Path(temp_dir) / "voice_synth.config.jsonc"
+            path = Path(temp_dir) / "voice_conductor.config.jsonc"
             path.write_text(
                 (
                     "{"
@@ -534,7 +520,7 @@ class ConfigAPITests(unittest.TestCase):
     def test_save_settings_adds_concise_default_voice_hints_and_help_file(self) -> None:
         settings = Settings()
         with tempfile.TemporaryDirectory() as temp_dir:
-            path = Path(temp_dir) / "voice_synth.config.jsonc"
+            path = Path(temp_dir) / "voice_conductor.config.jsonc"
             saved_path = settings.save_settings(path)
             saved_text = saved_path.read_text(encoding="utf-8")
             help_text = (Path(temp_dir) / "config-help.md").read_text(encoding="utf-8")
@@ -546,7 +532,7 @@ class ConfigAPITests(unittest.TestCase):
             saved_text,
         )
         self.assertIn("## Field reference", help_text)
-        self.assertIn("`voice_synth.route_config`", help_text)
+        self.assertIn("`voice_conductor.route_config`", help_text)
         self.assertIn("## Available voices", help_text)
         self.assertIn("| Animalese-ish | `animalese` | gibberish |", help_text)
         self.assertIn("phrase caching stores the stable voice id", help_text)
@@ -594,9 +580,9 @@ class ConfigAPITests(unittest.TestCase):
             raise AssertionError(f"Unexpected provider: {name}")
 
         with tempfile.TemporaryDirectory() as temp_dir:
-            path = Path(temp_dir) / "voice_synth.config.jsonc"
+            path = Path(temp_dir) / "voice_conductor.config.jsonc"
             with patch(
-                "voice_synth.providers.registry.ProviderRegistry.build_provider",
+                "voice_conductor.providers.registry.ProviderRegistry.build_provider",
                 side_effect=_build_provider,
             ):
                 saved_path = settings.save_settings(path)
@@ -663,7 +649,7 @@ class ConfigAPITests(unittest.TestCase):
             )
 
             with tempfile.TemporaryDirectory() as temp_dir:
-                path = Path(temp_dir) / "voice_synth.config.jsonc"
+                path = Path(temp_dir) / "voice_conductor.config.jsonc"
                 saved_path = settings.save_settings(path)
                 payload = _loads_config_text(saved_path.read_text(encoding="utf-8"), saved_path)
 

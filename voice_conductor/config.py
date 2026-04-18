@@ -1,6 +1,6 @@
-"""Configuration loading and coercion for voice_synth.
+"""Configuration loading and coercion for voice_conductor.
 
-Settings come from defaults plus an optional ``voice_synth.config.jsonc`` file
+Settings come from defaults plus an optional ``voice_conductor.config.jsonc`` file
 in the current working directory. The public dataclasses use the nested config
 shape.
 """
@@ -19,8 +19,8 @@ from .audio.router import AudioRoute, RouteConfig
 from .config_registry import ProviderConfigRegistry, register_provider_config
 from .voice_keys import normalize_voice_config_value, normalize_voice_key
 
-_CONFIG_FILENAMES = ("voice_synth.config.jsonc", "voice_synth.config.json")
-_TOP_LEVEL_KEYS = {"voice_synth", "providers"}
+_CONFIG_FILENAMES = ("voice_conductor.config.jsonc", "voice_conductor.config.json")
+_TOP_LEVEL_KEYS = {"voice_conductor", "providers"}
 _BUILT_IN_PROVIDERS = {"elevenlabs", "azure", "kokoro", "windows", "demo"}
 _DEFAULT_PROVIDER_CHAIN = ["elevenlabs", "kokoro", "azure", "windows"]
 _PRESERVED_PROVIDER_FIELDS = {
@@ -47,7 +47,7 @@ def _default_cache_root() -> str:
 
 
 def _default_cache_path(root: str | Path | None = None) -> str:
-    return str(_cache_root(root) / "voice_synth_cache.db")
+    return str(_cache_root(root) / "voice_conductor_cache.db")
 
 
 def _default_api_cache_dir(root: str | Path | None = None) -> str:
@@ -133,7 +133,7 @@ def _parse_provider_chain(value: Any) -> list[str]:
         candidates = value
     else:
         raise ValueError(
-            "voice_synth.provider_chain must be a list or comma-separated string, "
+            "voice_conductor.provider_chain must be a list or comma-separated string, "
             f"got {value!r}."
         )
     return [str(item).strip().lower() for item in candidates if str(item).strip()]
@@ -153,7 +153,7 @@ def _validate_top_level_keys(payload: dict[str, Any]) -> None:
         return
     keys = ", ".join(unsupported)
     raise ValueError(
-        "Config must use nested JSON with only 'voice_synth' and 'providers' "
+        "Config must use nested JSON with only 'voice_conductor' and 'providers' "
         f"top-level keys. Unsupported top-level keys: {keys}."
     )
 
@@ -313,8 +313,8 @@ class CacheSettings:
 
 
 @dataclass(slots=True)
-class VoiceSynthSettings:
-    """Top-level voice-synth settings for provider selection, routing, and caching."""
+class VoiceConductorSettings:
+    """Top-level VoiceConductor settings for provider selection, routing, and caching."""
 
     default_provider: str | None = field(
         default=None,
@@ -518,10 +518,10 @@ register_provider_config("demo", DemoProviderSettings)
 
 @dataclass(slots=True)
 class Settings:
-    """Complete voice-synth configuration object consumed by ``TTSManager``."""
+    """Complete VoiceConductor configuration object consumed by ``TTSManager``."""
 
-    voice_synth: VoiceSynthSettings = field(
-        default_factory=VoiceSynthSettings,
+    voice_conductor: VoiceConductorSettings = field(
+        default_factory=VoiceConductorSettings,
         metadata={"doc": "Package-level provider selection, routing, and cache settings."},
     )
     providers: ProviderSettings = field(
@@ -539,7 +539,7 @@ class Settings:
 
         root_dir = target.parent
         settings = Settings(
-            voice_synth=VoiceSynthSettings(
+            voice_conductor=VoiceConductorSettings(
                 cache=CacheSettings(root=root_dir)
             )
         )        
@@ -548,12 +548,12 @@ class Settings:
 
     def __post_init__(self) -> None:
         default_route_names = {"speakers", "mic"}
-        has_default_routes = set(self.voice_synth.route_config.routes) == default_route_names
+        has_default_routes = set(self.voice_conductor.route_config.routes) == default_route_names
         routes_are_unset = all(
-            route.device is None for route in self.voice_synth.route_config.routes.values()
+            route.device is None for route in self.voice_conductor.route_config.routes.values()
         )
         if has_default_routes and routes_are_unset:
-            self.voice_synth.route_config = RouteConfig().resolve_missing_devices()
+            self.voice_conductor.route_config = RouteConfig().resolve_missing_devices()
             
 
     def provider_settings(self, name: str) -> Any:
@@ -579,7 +579,7 @@ class Settings:
         payload = settings_to_dict(self)["providers"]
         return dict(payload.get(normalized, {}))
 
-    def save_settings(self, path: str | Path = "voice_synth.config.jsonc") -> Path:
+    def save_settings(self, path: str | Path = "voice_conductor.config.jsonc") -> Path:
         """Write settings to JSON and return the destination path."""
 
         target = Path(path)
@@ -636,30 +636,30 @@ def _read_float_default(
     return value
 
 
-def _parse_voice_synth(payload: dict[str, Any]) -> VoiceSynthSettings:
-    voice_synth = _require_mapping(payload.get("voice_synth"), "voice_synth")
-    cache = _require_mapping(voice_synth.get("cache"), "voice_synth.cache")
-    cache_root = _coerce_string(cache.get("root"), "voice_synth.cache.root")
+def _parse_voice_conductor(payload: dict[str, Any]) -> VoiceConductorSettings:
+    voice_conductor = _require_mapping(payload.get("voice_conductor"), "voice_conductor")
+    cache = _require_mapping(voice_conductor.get("cache"), "voice_conductor.cache")
+    cache_root = _coerce_string(cache.get("root"), "voice_conductor.cache.root")
 
-    return VoiceSynthSettings(
+    return VoiceConductorSettings(
         default_provider=_coerce_string(
-            voice_synth.get("default_provider"),
-            "voice_synth.default_provider",
+            voice_conductor.get("default_provider"),
+            "voice_conductor.default_provider",
         ),
         provider_chain=_parse_provider_chain(
-            voice_synth.get("provider_chain", _DEFAULT_PROVIDER_CHAIN)
+            voice_conductor.get("provider_chain", _DEFAULT_PROVIDER_CHAIN)
         ),
-        route_config=_parse_route_config(voice_synth),
+        route_config=_parse_route_config(voice_conductor),
         cache=CacheSettings(
-            path=_coerce_string(cache.get("path"), "voice_synth.cache.path"),
-            api_dir=_coerce_string(cache.get("api_dir"), "voice_synth.cache.api_dir"),
-            ttl_seconds=_coerce_int(cache.get("ttl_seconds"), "voice_synth.cache.ttl_seconds"),
+            path=_coerce_string(cache.get("path"), "voice_conductor.cache.path"),
+            api_dir=_coerce_string(cache.get("api_dir"), "voice_conductor.cache.api_dir"),
+            ttl_seconds=_coerce_int(cache.get("ttl_seconds"), "voice_conductor.cache.ttl_seconds"),
             root=_normalize_windows_config_path(cache_root) if cache_root is not None else None,
         ),
     )
 
 
-# def _parse_route_config(payload: dict[str, Any], voice_synth: VoiceSynthSettings) -> RouteConfig:
+# def _parse_route_config(payload: dict[str, Any], voice_conductor: VoiceConductorSettings) -> RouteConfig:
 def _parse_route_config(payload: dict[str, Any]) -> RouteConfig:
     if "route_config" not in payload:
         return RouteConfig()
@@ -858,7 +858,7 @@ def _settings_from_config_file(path: str | Path) -> Settings:
 
 
 def _resolve_relative_cache_paths(settings: Settings, base_dir: Path) -> Settings:
-    cache = settings.voice_synth.cache
+    cache = settings.voice_conductor.cache
     for field_name in ("root", "path", "api_dir"):
         value = getattr(cache, field_name)
         if value is not None and not Path(value).is_absolute():
@@ -872,9 +872,9 @@ def settings_from_dict(payload: dict[str, Any]) -> Settings:
     if not isinstance(payload, dict):
         raise ValueError("Settings payload must be a JSON object.")
     _validate_top_level_keys(payload)
-    voice_synth = _parse_voice_synth(payload)
+    voice_conductor = _parse_voice_conductor(payload)
     return Settings(
-        voice_synth=voice_synth,
+        voice_conductor=voice_conductor,
         providers=_parse_providers(payload)
     )
 
@@ -954,7 +954,7 @@ def _resolve_provider_default_voices(payload: dict[str, Any], settings: Settings
     existing_providers = existing.get("providers") if isinstance(existing.get("providers"), dict) else {}
 
     try:
-        from voice_synth.providers.registry import ProviderRegistry
+        from voice_conductor.providers.registry import ProviderRegistry
     except ImportError:
         return
 
@@ -1003,7 +1003,7 @@ def _provider_voice_comments(payload: dict[str, Any], settings: Settings) -> dic
         return {}
 
     try:
-        from voice_synth.providers.registry import ProviderRegistry
+        from voice_conductor.providers.registry import ProviderRegistry
     except ImportError:
         return {}
 
@@ -1150,27 +1150,27 @@ def _write_config_help(settings: Settings, path: Path) -> None:
     """Write companion Markdown explaining generated config fields."""
 
     lines = [
-        "# voice-synth config help",
+        "# VoiceConductor config help",
         "",
-        "Generated next to `voice_synth.config.jsonc` so the config can stay compact and this guide can stay easy to scan.",
+        "Generated next to `voice_conductor.config.jsonc` so the config can stay compact and this guide can stay easy to scan.",
         "",
         "## Edit map",
         "",
         "| Area | Use it for | Start with |",
         "| --- | --- | --- |",
-        "| `voice_synth` | Provider order, routing, and cache behavior. | `provider_chain` then `route_config` |",
-        "| `voice_synth.route_config` | Named speaker and virtual-mic playback targets. | `speakers` and `mic` routes |",
+        "| `voice_conductor` | Provider order, routing, and cache behavior. | `provider_chain` then `route_config` |",
+        "| `voice_conductor.route_config` | Named speaker and virtual-mic playback targets. | `speakers` and `mic` routes |",
         "| `providers` | Credentials, voices, models, and provider-specific tuning. | The provider named first in `provider_chain` |",
         "",
         "## Quick changes",
         "",
         "| When you want to... | Edit... |",
         "| --- | --- |",
-        "| Try providers in a different order | `voice_synth.provider_chain` |",
-        "| Force one provider when no chain is set | `voice_synth.default_provider` |",
-        "| Send playback to speakers or a virtual mic | `voice_synth.route_config` |",
+        "| Try providers in a different order | `voice_conductor.provider_chain` |",
+        "| Force one provider when no chain is set | `voice_conductor.default_provider` |",
+        "| Send playback to speakers or a virtual mic | `voice_conductor.route_config` |",
         "| Pick a new default voice | `providers.<name>.default_voice` |",
-        "| Move or expire caches | `voice_synth.cache` |",
+        "| Move or expire caches | `voice_conductor.cache` |",
         "",
         "## Available voices",
         "",
@@ -1183,11 +1183,11 @@ def _write_config_help(settings: Settings, path: Path) -> None:
             "",
             "## Field reference",
             "",
-            "Field names match the nested JSON path in `voice_synth.config.jsonc`.",
+            "Field names match the nested JSON path in `voice_conductor.config.jsonc`.",
             "",
         ]
     )
-    lines.extend(_settings_help_sections("voice_synth", settings.voice_synth))
+    lines.extend(_settings_help_sections("voice_conductor", settings.voice_conductor))
     lines.extend(_settings_help_sections("providers", settings.providers))
     lines.extend(
         [
@@ -1207,7 +1207,7 @@ def _write_config_help(settings: Settings, path: Path) -> None:
 
 def _provider_voice_sections(settings: Settings) -> list[str]:
     try:
-        from voice_synth.providers.registry import ProviderRegistry
+        from voice_conductor.providers.registry import ProviderRegistry
     except ImportError:
         return [
             "Provider voice lookup is unavailable because the provider registry could not be imported.",
@@ -1332,12 +1332,12 @@ def _collect_settings_help_sections(
 
 def _settings_help_title(section: str) -> str:
     label = section.removeprefix("providers.")
-    label = label.removeprefix("voice_synth.")
+    label = label.removeprefix("voice_conductor.")
     label = label.replace("_", " ").replace(".", " / ")
     if section.startswith("providers.") and section != "providers":
         return f"{_provider_help_title(label)} settings"
-    if section == "voice_synth":
-        return "Voice synth settings"
+    if section == "voice_conductor":
+        return "Voice conductor settings"
     if section == "providers":
         return "Provider settings"
     return label.title()
@@ -1423,23 +1423,23 @@ def settings_to_dict(settings: Settings) -> dict[str, Any]:
     }
 
     return {
-        "voice_synth": {
-            "default_provider": settings.voice_synth.default_provider,
-            "provider_chain": list(settings.voice_synth.provider_chain),
+        "voice_conductor": {
+            "default_provider": settings.voice_conductor.default_provider,
+            "provider_chain": list(settings.voice_conductor.provider_chain),
             "route_config": {
                 "routes": {
                     name: {
                         "device": route.device,
                         "prefer_virtual_cable": route.prefer_virtual_cable,
                     }
-                    for name, route in settings.voice_synth.route_config.routes.items()
+                    for name, route in settings.voice_conductor.route_config.routes.items()
                 },
             },
             "cache": {
-                "root": _normalize_windows_config_path(settings.voice_synth.cache.root or _default_cache_root()),
-                "path": _normalize_windows_config_path(settings.voice_synth.cache.path),
-                "api_dir": _normalize_windows_config_path(settings.voice_synth.cache.api_dir),
-                "ttl_seconds": settings.voice_synth.cache.ttl_seconds,
+                "root": _normalize_windows_config_path(settings.voice_conductor.cache.root or _default_cache_root()),
+                "path": _normalize_windows_config_path(settings.voice_conductor.cache.path),
+                "api_dir": _normalize_windows_config_path(settings.voice_conductor.cache.api_dir),
+                "ttl_seconds": settings.voice_conductor.cache.ttl_seconds,
             },
         },
         "providers": providers,

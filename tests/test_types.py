@@ -7,7 +7,7 @@ import wave
 
 import numpy as np
 
-from voice_synth.types import SynthesizedAudio
+from voice_conductor.types import SynthesizedAudio
 
 
 class SynthesizedAudioTests(unittest.TestCase):

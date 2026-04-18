@@ -1,4 +1,4 @@
-"""Provider classes and registry helpers exported by voice_synth."""
+"""Provider classes and registry helpers exported by voice_conductor."""
 
 from .azure import AzureSpeechProvider
 from .base import TTSProvider

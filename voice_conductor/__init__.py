@@ -1,4 +1,4 @@
-"""Public package API for voice_synth.
+"""Public package API for voice_conductor.
 
 Most callers should start with ``TTSManager``. The re-exported settings,
 provider registry, routing, and shared data types are exposed for applications
@@ -15,7 +15,7 @@ from .config import (
     KokoroSettings,
     ProviderSettings,
     Settings,
-    VoiceSynthSettings,
+    VoiceConductorSettings,
     WindowsSettings,
     load_settings,
     settings_from_dict,
@@ -63,7 +63,7 @@ __all__ = [
     "SynthesizedAudio",
     "TTSManager",
     "VoiceInfo",
-    "VoiceSynthSettings",
+    "VoiceConductorSettings",
     "WindowsSettings",
     "load_settings",
     "normalize_voice_key",

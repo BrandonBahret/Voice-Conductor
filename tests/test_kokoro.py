@@ -8,9 +8,9 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from voice_synth.config import settings_from_dict
-from voice_synth.exceptions import ConfigurationError, DependencyError
-from voice_synth.providers.kokoro import KokoroProvider
+from voice_conductor.config import settings_from_dict
+from voice_conductor.exceptions import ConfigurationError, DependencyError
+from voice_conductor.providers.kokoro import KokoroProvider
 
 
 class KokoroProviderTests(unittest.TestCase):
@@ -70,7 +70,7 @@ class KokoroProviderTests(unittest.TestCase):
                 DependencyError,
                 re.escape(
                     "Kokoro backend requires the optional 'kokoro' package. "
-                    "Install it with 'pip install \"voice-synth[kokoro]\"'."
+                    "Install it with 'pip install \"VoiceConductor[kokoro]\"'."
                 ),
             ):
                 provider._ensure_pipeline()

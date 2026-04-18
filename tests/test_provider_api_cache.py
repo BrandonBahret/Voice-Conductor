@@ -6,9 +6,9 @@ import unittest
 from unittest.mock import patch
 from urllib.parse import parse_qs, urlparse
 
-from voice_synth.config import Settings, settings_from_dict
-from voice_synth.providers.azure import AzureSpeechProvider
-from voice_synth.providers.elevenlabs import ElevenLabsProvider
+from voice_conductor.config import Settings, settings_from_dict
+from voice_conductor.providers.azure import AzureSpeechProvider
+from voice_conductor.providers.elevenlabs import ElevenLabsProvider
 
 
 class _FakeHTTPResponse:
@@ -50,7 +50,7 @@ def _settings(
     if ttl_seconds is not None:
         cache["ttl_seconds"] = ttl_seconds
     payload: dict[str, object] = {
-        "voice_synth": {
+        "voice_conductor": {
             "cache": cache,
         },
         "providers": {},
@@ -73,7 +73,7 @@ class ProviderAPICacheTests(unittest.TestCase):
                     {"voice_id": "voice-1", "name": "Rachel", "category": "generated"}
                 ]
             }
-            with patch("voice_synth.providers.elevenlabs.request.urlopen") as mock_urlopen:
+            with patch("voice_conductor.providers.elevenlabs.request.urlopen") as mock_urlopen:
                 mock_urlopen.return_value = _FakeHTTPResponse(payload)
                 first = ElevenLabsProvider(settings).list_voices()
                 second = ElevenLabsProvider(settings).list_voices()
@@ -91,7 +91,7 @@ class ProviderAPICacheTests(unittest.TestCase):
                     {"voice_id": "voice-1", "name": "Rachel", "category": "generated"}
                 ]
             }
-            with patch("voice_synth.providers.elevenlabs.request.urlopen") as mock_urlopen:
+            with patch("voice_conductor.providers.elevenlabs.request.urlopen") as mock_urlopen:
                 mock_urlopen.return_value = _FakeHTTPResponse(payload)
                 voices = ElevenLabsProvider.list_voices(settings)
 
@@ -113,7 +113,7 @@ class ProviderAPICacheTests(unittest.TestCase):
                     "LocalName": "Ava",
                 }
             ]
-            with patch("voice_synth.providers.azure.request.urlopen") as mock_urlopen:
+            with patch("voice_conductor.providers.azure.request.urlopen") as mock_urlopen:
                 mock_urlopen.return_value = _FakeHTTPResponse(payload)
                 first = AzureSpeechProvider(settings).list_voices()
                 second = AzureSpeechProvider(settings).list_voices()
@@ -139,7 +139,7 @@ class ProviderAPICacheTests(unittest.TestCase):
                     "LocalName": "Ava",
                 }
             ]
-            with patch("voice_synth.providers.azure.request.urlopen") as mock_urlopen:
+            with patch("voice_conductor.providers.azure.request.urlopen") as mock_urlopen:
                 mock_urlopen.return_value = _FakeHTTPResponse(payload)
                 voices = AzureSpeechProvider.list_voices(settings)
 
@@ -160,7 +160,7 @@ class ProviderAPICacheTests(unittest.TestCase):
                     {"voice_id": "voice-2", "name": "Adam", "category": "generated"}
                 ]
             }
-            with patch("voice_synth.providers.elevenlabs.request.urlopen") as mock_urlopen:
+            with patch("voice_conductor.providers.elevenlabs.request.urlopen") as mock_urlopen:
                 mock_urlopen.side_effect = [
                     _FakeHTTPResponse(first_payload),
                     _FakeHTTPResponse(second_payload),
@@ -200,7 +200,7 @@ class ProviderAPICacheTests(unittest.TestCase):
                     "LocalName": "Jenny",
                 }
             ]
-            with patch("voice_synth.providers.azure.request.urlopen") as mock_urlopen:
+            with patch("voice_conductor.providers.azure.request.urlopen") as mock_urlopen:
                 mock_urlopen.side_effect = [
                     _FakeHTTPResponse(first_payload),
                     _FakeHTTPResponse(second_payload),
@@ -231,7 +231,7 @@ class ProviderAPICacheTests(unittest.TestCase):
                     {"voice_id": "voice-2", "name": "Adam", "category": "generated"}
                 ]
             }
-            with patch("voice_synth.providers.elevenlabs.request.urlopen") as mock_urlopen:
+            with patch("voice_conductor.providers.elevenlabs.request.urlopen") as mock_urlopen:
                 mock_urlopen.side_effect = [
                     _FakeHTTPResponse(first_payload),
                     _FakeHTTPResponse(second_payload),
@@ -269,7 +269,7 @@ class ProviderAPICacheTests(unittest.TestCase):
                     return _FakeHTTPResponse(payload)
                 return _BinaryHTTPResponse(b"\x00\x00")
 
-            with patch("voice_synth.providers.elevenlabs.request.urlopen", side_effect=fake_urlopen):
+            with patch("voice_conductor.providers.elevenlabs.request.urlopen", side_effect=fake_urlopen):
                 provider.synthesize("hello", voice="Rachel")
 
         request_obj = captured[-1]
@@ -307,7 +307,7 @@ class ProviderAPICacheTests(unittest.TestCase):
                     )
                 )
 
-            with patch("voice_synth.providers.azure.request.urlopen", side_effect=fake_urlopen):
+            with patch("voice_conductor.providers.azure.request.urlopen", side_effect=fake_urlopen):
                 provider.synthesize("hello", voice="en-US-AvaNeural")
 
         request_obj = captured[-1]

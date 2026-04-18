@@ -10,14 +10,14 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from voice_synth.config import Settings
-from voice_synth.exceptions import ProviderError
-from voice_synth.providers.azure import AzureSpeechProvider
-from voice_synth.providers.base import TTSProvider
-from voice_synth.providers.demo import DemoProvider
-from voice_synth.providers.elevenlabs import ElevenLabsProvider
-from voice_synth.providers.kokoro import KokoroProvider
-from voice_synth.providers.windows import WindowsSpeechProvider
+from voice_conductor.config import Settings
+from voice_conductor.exceptions import ProviderError
+from voice_conductor.providers.azure import AzureSpeechProvider
+from voice_conductor.providers.base import TTSProvider
+from voice_conductor.providers.demo import DemoProvider
+from voice_conductor.providers.elevenlabs import ElevenLabsProvider
+from voice_conductor.providers.kokoro import KokoroProvider
+from voice_conductor.providers.windows import WindowsSpeechProvider
 
 ProviderFactory = Callable[[Settings], TTSProvider]
 

@@ -1,6 +1,6 @@
 """Kokoro local-provider integration.
 
-Kokoro is optional and imported lazily so voice_synth can still be installed
+Kokoro is optional and imported lazily so voice_conductor can still be installed
 without the model dependency. The provider keeps a pipeline instance after first
 use and configures Hugging Face tokens just before model loading.
 """
@@ -12,10 +12,10 @@ from typing import Any
 
 import numpy as np
 
-from voice_synth.config import Settings
-from voice_synth.exceptions import ConfigurationError, DependencyError, ProviderError
-from voice_synth.providers.base import TTSProvider
-from voice_synth.types import SynthesizedAudio, VoiceInfo
+from voice_conductor.config import Settings
+from voice_conductor.exceptions import ConfigurationError, DependencyError, ProviderError
+from voice_conductor.providers.base import TTSProvider
+from voice_conductor.types import SynthesizedAudio, VoiceInfo
 
 _DEFAULT_KOKORO_VOICES = [
     "af_heart",
@@ -60,7 +60,7 @@ class KokoroProvider(TTSProvider):
         if not self._has_kokoro_package():
             raise DependencyError(
                 "Kokoro backend requires the optional 'kokoro' package. "
-                "Install it with 'pip install \"voice-synth[kokoro]\"'."
+                "Install it with 'pip install \"VoiceConductor[kokoro]\"'."
             )
         if not self._has_huggingface_token():
             raise ConfigurationError("Kokoro requires providers.kokoro.hf_token.")

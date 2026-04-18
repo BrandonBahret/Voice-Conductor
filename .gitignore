@@ -7,12 +7,12 @@ api-caches/
 pytest-cache-files-*/
 __pycache__/
 *.py[cod]
-voice_synth_cache*.db
-voice_synth_cache*.db-journal
-voice_synth_cache*.db-x-*
+voice_conductor_cache*.db
+voice_conductor_cache*.db-journal
+voice_conductor_cache*.db-x-*
 test_sqlite_*.db
 api-caches/
-voice_synth.config.jsonc
+voice_conductor.config.jsonc
 todo.md
-voice_synth_cache.db
+voice_conductor_cache.db
 testenv/

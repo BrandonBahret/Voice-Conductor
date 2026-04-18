@@ -1,4 +1,4 @@
-"""Public audio routing helpers exported by voice_synth."""
+"""Public audio routing helpers exported by voice_conductor."""
 
 from .devices import find_output_device, list_output_devices
 from .router import AudioRoute, RouteConfig

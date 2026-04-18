@@ -13,13 +13,13 @@ from typing import Any
 from urllib import error, request
 from xml.sax.saxutils import escape
 
-from voice_synth.api_cache import APICache
-from voice_synth.api_cache import build_scoped_cache_key
-from voice_synth.api_cache import AZURE_VOICE_LIST_TTL_SECONDS
-from voice_synth.config import Settings
-from voice_synth.exceptions import ConfigurationError, ProviderError
-from voice_synth.providers.base import TTSProvider, settings_from_provider_or_arg
-from voice_synth.types import SynthesizedAudio, VoiceInfo
+from voice_conductor.api_cache import APICache
+from voice_conductor.api_cache import build_scoped_cache_key
+from voice_conductor.api_cache import AZURE_VOICE_LIST_TTL_SECONDS
+from voice_conductor.config import Settings
+from voice_conductor.exceptions import ConfigurationError, ProviderError
+from voice_conductor.providers.base import TTSProvider, settings_from_provider_or_arg
+from voice_conductor.types import SynthesizedAudio, VoiceInfo
 
 
 class AzureSpeechProvider(TTSProvider):
@@ -30,7 +30,7 @@ class AzureSpeechProvider(TTSProvider):
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self._provider_settings = settings.providers.azure
-        self._cache_settings = settings.voice_synth.cache
+        self._cache_settings = settings.voice_conductor.cache
         self._api_cache = APICache(self.name, self._cache_settings.api_dir)
 
     def is_available(self) -> bool:
@@ -115,7 +115,7 @@ class AzureSpeechProvider(TTSProvider):
                 "Ocp-Apim-Subscription-Key": key,
                 "Content-Type": "application/ssml+xml",
                 "X-Microsoft-OutputFormat": "riff-16khz-16bit-mono-pcm",
-                "User-Agent": "voice-synth",
+                "User-Agent": "VoiceConductor",
             },
         )
         try:
@@ -167,7 +167,7 @@ class AzureSpeechProvider(TTSProvider):
         key, _ = self._require_config()
         req = request.Request(
             self._voices_url,
-            headers={"Ocp-Apim-Subscription-Key": key, "User-Agent": "voice-synth"},
+            headers={"Ocp-Apim-Subscription-Key": key, "User-Agent": "VoiceConductor"},
         )
         try:
             with request.urlopen(req, timeout=30) as response:

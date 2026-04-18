@@ -7,12 +7,13 @@ python examples/custom_provider_demo/custom_provider_demo.py
 ```
 
 The demo registers a local `tone` provider with a small offline ensemble:
-`tone:piano`, `tone:banjo`, `tone:bandoneon`, `tone:bass`, `tone:clarinet`,
-`tone:marimba`, `tone:oboe`, `tone:recorder`, `tone:tenor_sax`,
-`tone:trumpet`, and `tone:tuba`. Each score key gets its own ASCII score
-string, the provider synthesizes those strings into separate WAV tracks, and
-then the tracks are mixed into `.runtime/ascii-ensemble-song.wav` and routed to
-`speakers`.
+`tone:piano`, `tone:electric_piano`, `tone:banjo`, `tone:bandoneon`,
+`tone:bass`, `tone:electric_bass`, `tone:synth_bass`, `tone:clarinet`,
+`tone:marimba`, `tone:drum_kit`, `tone:oboe`, `tone:recorder`,
+`tone:tenor_sax`, `tone:square_lead`, `tone:synth_strings`, `tone:trumpet`,
+and `tone:tuba`. Each score key gets its own ASCII score string, the provider
+synthesizes those strings into separate WAV tracks, and then the tracks are
+mixed into `.runtime/ascii-ensemble-song.wav` and routed to `speakers`.
 
 ## Notation
 
@@ -58,23 +59,19 @@ python examples/custom_provider_demo/midi_to_ascii.py path/to/song.mid --output 
 ```
 
 The output is a small Python `song = {...}` dictionary. Paste the tracks into
-`ascii_song_demo.py`, or import the generated file from another experiment and
+`main.py`, or import the generated file from another experiment and
 pass each notation string to `manager.synthesize_voice(...)`.
 
 Dictionary keys are playable `tone` voices, not raw MIDI track labels. The
-converter maps common instrument labels to the closest demo voices and adds
-suffixes like `trumpet_2` when several MIDI tracks land on the same voice
-recipe.
+converter maps common instrument labels, channel programs, and percussion
+channels to the closest demo voices. It adds suffixes like `trumpet_2` when
+several MIDI tracks land on the same voice recipe.
 
 The converter carries MIDI note velocity, channel volume, and channel
 expression into `!volume` commands. That gives quieter parts a smaller
 contribution before `merge_tracks()` normalizes the final ensemble.
-
-When a MIDI contains a clear lead instrument, the converter may treat that part
-as the primary voice and write the other tracks as secondary arrangement parts
-by applying a lower `^gain` prefix to their generated notation. The formatted
-output includes an `Arrangement: secondary` comment above those tracks, so the
-lead/accompaniment balance is visible before playback.
+It does not add preset `^gain` changes; manual `^gain` notation remains
+available for hand-written scores.
 
 By default, notes outside the playable `C3..B5` demo range are transposed by
 octaves into range. Use `--keep-octaves` to drop out-of-range notes instead.
@@ -99,14 +96,20 @@ or another value when the source material uses a different meter.
 The instrument voices use different simple wave recipes:
 
 - `piano` uses a bright harmonic stack with a fast attack and exponential decay.
+- `electric_piano` adds bell partials and tremolo for a brighter keyed tone.
 - `banjo` uses a sharp plucked string attack with bright harmonics and quick decay.
 - `bandoneon` layers slightly detuned free-reed stacks with slow bellows tremolo.
 - `bass` uses plucked low harmonics with a half-frequency weight for body.
+- `electric_bass` uses a rounded pluck with a little saturation and low body.
+- `synth_bass` uses square and sub oscillators with a tight sustained envelope.
 - `clarinet` emphasizes odd harmonics with a smoother sustained envelope.
 - `marimba` uses a fast mallet strike plus bar-like partials around `1:4:9.8`.
+- `drum_kit` maps low, mid, and high score notes into kick, snare, tom, and hat-like hits.
 - `oboe` uses a bright double-reed buzz and a small nasal formant.
 - `recorder` favors odd harmonics with a little deterministic breath noise.
 - `tenor_sax` uses a conical-reed harmonic stack with mild growl and breath.
+- `square_lead` uses bright square-wave stacks with a small vibrato.
+- `synth_strings` layers detuned sustained harmonics with a slow attack.
 - `trumpet` leans toward a mellower cornet profile with softer attack and rounder brass harmonics.
 - `tuba` uses a lower brass stack with slower attack and extra low body.
 
@@ -117,8 +120,8 @@ and `part_number=2` so the merged song can still identify the secondary track.
 
 `merge_tracks()` pads the generated tracks to the longest length, sums them, scales by the square root of the track count, and peak-limits the result so the merged clip stays in the normal `[-1.0, 1.0]` audio range.
 
-## voice-synth Wiring
+## VoiceConductor Wiring
 
 `ToneProviderSettings` is registered with `register_provider_config()`, and `ToneProvider` is registered with `register_provider()`. `build_manager()` creates a `TTSManager` whose provider chain prefers `tone`, so normal calls like `manager.synthesize_voice(score, provider="tone", voice="piano")` use the custom provider.
 
-The generated audio is returned as `SynthesizedAudio`, which means the regular voice-synth cache, WAV export, and routing APIs work without special handling. The demo writes each stem with `copy_to()` and sends the merged `SynthesizedAudio` to `manager.route(..., routes="speakers")`.
+The generated audio is returned as `SynthesizedAudio`, which means the regular VoiceConductor cache, WAV export, and routing APIs work without special handling. The demo writes each stem with `copy_to()` and sends the merged `SynthesizedAudio` to `manager.route(..., routes="speakers")`.

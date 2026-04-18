@@ -1,4 +1,4 @@
-# voice-synth
+# VoiceConductor
 
 A Python package for generating and routing synthesized voice lines. Supports output to speakers or virtual microphones.
 
@@ -24,13 +24,13 @@ A Python package for generating and routing synthesized voice lines. Supports ou
 Install the package:
 
 ```bash
-pip install voice-synth
+pip install VoiceConductor
 ```
 
 Install with Kokoro support:
 
 ```bash
-pip install "voice-synth[kokoro]"
+pip install "VoiceConductor[kokoro]"
 ```
 
 For local development from a checkout:
@@ -42,7 +42,7 @@ pip install -e ".[kokoro]"
 ## Quick Start
 
 ```python
-from voice_synth import TTSManager
+from voice_conductor import TTSManager
 
 tts = TTSManager()
 tts.speak("This is a test.", routes="speakers")
@@ -51,7 +51,7 @@ tts.speak("This is a test.", routes="speakers")
 Route to a virtual mic:
 
 ```python
-from voice_synth import TTSManager
+from voice_conductor import TTSManager
 
 tts = TTSManager()
 tts.speak("Now, to the virtual microphone.", routes="mic")
@@ -73,21 +73,21 @@ print(result.routes)
 
 ## Configuration
 
-By default, `voice_synth` looks for one of these files in the current working directory:
+By default, `voice_conductor` looks for one of these files in the current working directory:
 
-- `voice_synth.config.jsonc`
-- `voice_synth.config.json`
+- `voice_conductor.config.jsonc`
+- `voice_conductor.config.json`
 
 If neither file exists, defaults are used. To create a config file you can edit, save the current settings:
 
 ```python
-from voice_synth import load_settings
+from voice_conductor import load_settings
 
 settings = load_settings()
-settings.save_settings("voice_synth.config.jsonc")
+settings.save_settings("voice_conductor.config.jsonc")
 ```
 
-Provider selection follows `voice_synth.provider_chain`. When `speak()` or `synthesize_voice()` does not specify a provider, the manager uses the first available provider in that chain.
+Provider selection follows `voice_conductor.provider_chain`. When `speak()` or `synthesize_voice()` does not specify a provider, the manager uses the first available provider in that chain.
 
 ## Providers
 
@@ -104,7 +104,7 @@ Built-in providers:
 List available providers:
 
 ```python
-from voice_synth import TTSManager
+from voice_conductor import TTSManager
 
 tts = TTSManager()
 print(tts.list_providers())
@@ -170,7 +170,7 @@ result = task.result(timeout=10)
 Playback hooks run after audio and routes are ready and after playback completes. They are useful for pressing and releasing push-to-talk around virtual mic playback.
 
 ```python
-from voice_synth import PlaybackHooks, TTSManager
+from voice_conductor import PlaybackHooks, TTSManager
 
 tts = TTSManager()
 

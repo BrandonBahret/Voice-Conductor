@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from voice_synth.voice_keys import normalize_voice_config_value, normalize_voice_key
+from voice_conductor.voice_keys import normalize_voice_config_value, normalize_voice_key
 
 
 class VoiceKeyTests(unittest.TestCase):

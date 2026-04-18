@@ -1,4 +1,4 @@
-"""Small tkinter wrapper around voice_synth.
+"""Small tkinter wrapper around voice_conductor.
 
 Run from the repository root after installing the package in editable mode:
 
@@ -23,7 +23,7 @@ if str(REPO_ROOT) not in sys.path:
     # package is installed, the normal environment import would work too.
     sys.path.insert(0, str(REPO_ROOT))
 
-from voice_synth import SynthesizedAudio, TTSManager
+from voice_conductor import SynthesizedAudio, TTSManager
 
 
 EXAMPLE_DIR = Path(__file__).resolve().parent
@@ -35,7 +35,7 @@ def build_manager() -> TTSManager:
 
     current_dir = Path.cwd()
     try:
-        # Let voice_synth discover this example's voice_synth.config.jsonc.
+        # Let voice_conductor discover this example's voice_conductor.config.jsonc.
         os.chdir(EXAMPLE_DIR)
         return TTSManager()
     finally:
@@ -43,7 +43,7 @@ def build_manager() -> TTSManager:
 
 
 def provider_names(manager: TTSManager) -> list[str]:
-    """Ask voice_synth which configured providers are currently usable."""
+    """Ask voice_conductor which configured providers are currently usable."""
 
     return manager.list_providers()
 
@@ -88,12 +88,12 @@ def synthesize_line(
     )
 
 
-class VoiceSynthApp(tk.Tk):
+class VoiceConductorApp(tk.Tk):
     """Minimal desktop UI that wraps the high-level TTSManager API."""
 
     def __init__(self) -> None:
         super().__init__()
-        self.title("voice-synth simple UI wrapper")
+        self.title("VoiceConductor simple UI wrapper")
         self.geometry("720x460")
         self.minsize(620, 420)
 
@@ -162,7 +162,7 @@ class VoiceSynthApp(tk.Tk):
 
         # Routes are just named outputs. ``speakers`` plays locally, ``mic``
         # targets a virtual cable when one is configured, and both asks
-        # voice_synth to route the same clip to both outputs.
+        # voice_conductor to route the same clip to both outputs.
         ttk.Radiobutton(route_frame, text="Speakers", variable=self.route_var, value="speakers").pack(
             side=tk.LEFT, padx=8, pady=8
         )
@@ -305,7 +305,7 @@ class VoiceSynthApp(tk.Tk):
             defaultextension=".wav",
             filetypes=[("WAV audio", "*.wav")],
             initialdir=str(EXAMPLE_DIR),
-            initialfile="voice-synth-example.wav",
+            initialfile="VoiceConductor-example.wav",
         )
         if not target:
             self.status_var.set("Export cancelled.")
@@ -317,7 +317,7 @@ class VoiceSynthApp(tk.Tk):
     def refresh_providers(self) -> None:
         providers = provider_names(self.manager)
         current = self.provider_var.get().strip()
-        default_provider = self.manager.settings.voice_synth.default_provider
+        default_provider = self.manager.settings.voice_conductor.default_provider
         self.provider_combo["values"] = providers
         if current in providers:
             self.provider_var.set(current)
@@ -332,4 +332,4 @@ class VoiceSynthApp(tk.Tk):
 
 
 if __name__ == "__main__":
-    VoiceSynthApp().mainloop()
+    VoiceConductorApp().mainloop()

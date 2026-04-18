@@ -6,9 +6,9 @@ import re
 
 import numpy as np
 
-from voice_synth.config import Settings
-from voice_synth.providers.base import TTSProvider
-from voice_synth.types import SynthesizedAudio, VoiceInfo
+from voice_conductor.config import Settings
+from voice_conductor.providers.base import TTSProvider
+from voice_conductor.types import SynthesizedAudio, VoiceInfo
 
 _WORD_TOKEN_PATTERN = re.compile(r"\S+")
 _VOWEL_PATTERN = re.compile(r"[aeiouy]+")

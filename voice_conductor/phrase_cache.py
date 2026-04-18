@@ -7,12 +7,13 @@ import hashlib
 import json
 from pathlib import Path
 import sqlite3
+import threading
 from typing import Any, Literal
 
 import msgpack
 import numpy as np
 
-from voice_synth.types import SynthesizedAudio
+from voice_conductor.types import SynthesizedAudio
 
 CacheLookupMode = Literal["strict", "relaxed"]
 
@@ -81,60 +82,89 @@ class PhraseCache:
 
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        self._conn: sqlite3.Connection | None = None
+        self._lock = threading.RLock()
         self._init_db()
 
     def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.path)
-        conn.execute("PRAGMA journal_mode=MEMORY")
-        return conn
+        if self._conn is None:
+            self._conn = sqlite3.connect(self.path, check_same_thread=False)
+            self._conn.execute("PRAGMA journal_mode=MEMORY")
+        return self._conn
+
+    def close(self) -> None:
+        """Close the reusable SQLite connection, if one is open."""
+
+        with self._lock:
+            if self._conn is not None:
+                self._conn.close()
+                self._conn = None
+
+    def __enter__(self) -> PhraseCache:
+        return self
+
+    def __exit__(self, *exc_info: object) -> None:
+        self.close()
+
+    def _discard_connection(self) -> None:
+        """Close the current connection before resetting or reopening the DB."""
+
+        if self._conn is not None:
+            self._conn.close()
+            self._conn = None
 
     def _init_db(self) -> None:
-        try:
-            conn = self._connect()
-        except sqlite3.OperationalError:
-            self._reset_database_file()
-            conn = self._connect()
-        try:
+        with self._lock:
             try:
-                unsupported_schema = self._has_unsupported_schema(conn)
+                conn = self._connect()
             except sqlite3.OperationalError:
-                conn.close()
                 self._reset_database_file()
                 conn = self._connect()
-                unsupported_schema = False
-            if unsupported_schema:
+            try:
                 try:
-                    conn.execute("DROP TABLE phrase_cache")
+                    unsupported_schema = self._has_unsupported_schema(conn)
                 except sqlite3.OperationalError:
-                    conn.close()
+                    self._discard_connection()
                     self._reset_database_file()
                     conn = self._connect()
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS phrase_cache (
-                    provider TEXT NOT NULL,
-                    voice_key TEXT NOT NULL,
-                    text_key TEXT NOT NULL,
-                    settings_hash TEXT NOT NULL,
-                    settings_json TEXT NOT NULL,
-                    payload BLOB NOT NULL,
-                    PRIMARY KEY (provider, voice_key, text_key, settings_hash)
+                    unsupported_schema = False
+                if unsupported_schema:
+                    try:
+                        conn.execute("DROP TABLE phrase_cache")
+                    except sqlite3.OperationalError:
+                        self._discard_connection()
+                        self._reset_database_file()
+                        conn = self._connect()
+                conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS phrase_cache (
+                        provider TEXT NOT NULL,
+                        voice_key TEXT NOT NULL,
+                        text_key TEXT NOT NULL,
+                        settings_hash TEXT NOT NULL,
+                        settings_json TEXT NOT NULL,
+                        payload BLOB NOT NULL,
+                        PRIMARY KEY (provider, voice_key, text_key, settings_hash)
+                    )
+                    """
                 )
-                """
-            )
-            conn.execute(
-                """
-                CREATE INDEX IF NOT EXISTS idx_phrase_cache_relaxed
-                ON phrase_cache (provider, voice_key, text_key)
-                """
-            )
-            conn.commit()
-        finally:
-            conn.close()
+                conn.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_phrase_cache_relaxed
+                    ON phrase_cache (provider, voice_key, text_key)
+                    """
+                )
+                conn.commit()
+            except Exception:
+                self._discard_connection()
+                raise
+            finally:
+                self._discard_connection()
 
     def _reset_database_file(self) -> None:
         """Delete an unsupported cache DB and sidecar payload files."""
 
+        self._discard_connection()
         try:
             self.path.unlink(missing_ok=True)
             self.path.with_name(f"{self.path.name}-journal").unlink(missing_ok=True)
@@ -179,8 +209,8 @@ class PhraseCache:
         if lookup_mode not in {"strict", "relaxed"}:
             raise ValueError("lookup_mode must be 'strict' or 'relaxed'.")
 
-        conn = self._connect()
-        try:
+        with self._lock:
+            conn = self._connect()
             if lookup_mode == "strict":
                 row = conn.execute(
                     """
@@ -201,8 +231,6 @@ class PhraseCache:
                     """,
                     (key.provider, key.voice_key, key.normalized_text, key.settings_hash),
                 ).fetchone()
-        finally:
-            conn.close()
         if row is None:
             return None
         return self._deserialize(row[0])
@@ -211,8 +239,8 @@ class PhraseCache:
         """Insert or replace a synthesized phrase payload."""
 
         payload = self._serialize(audio)
-        conn = self._connect()
-        try:
+        with self._lock:
+            conn = self._connect()
             conn.execute(
                 """
                 INSERT INTO phrase_cache (
@@ -239,8 +267,6 @@ class PhraseCache:
                 ),
             )
             conn.commit()
-        finally:
-            conn.close()
 
     def invalidate(
         self,
@@ -270,26 +296,22 @@ class PhraseCache:
         if not filters:
             raise ValueError("Pass a cache key or at least one filter, or use clear().")
 
-        conn = self._connect()
-        try:
+        with self._lock:
+            conn = self._connect()
             cursor = conn.execute(
                 f"DELETE FROM phrase_cache WHERE {' AND '.join(filters)}",
                 tuple(params),
             )
             conn.commit()
             return int(cursor.rowcount)
-        finally:
-            conn.close()
 
     def clear(self) -> None:
         """Remove all phrase cache rows without deleting the database file."""
 
-        conn = self._connect()
-        try:
+        with self._lock:
+            conn = self._connect()
             conn.execute("DELETE FROM phrase_cache")
             conn.commit()
-        finally:
-            conn.close()
 
     def _serialize(self, audio: SynthesizedAudio) -> bytes:
         """Pack audio samples and metadata into a msgpack BLOB."""
