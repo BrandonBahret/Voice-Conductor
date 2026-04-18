@@ -22,13 +22,13 @@ That keeps TTS on the AUX strip instead of mixing it with desktop audio on the m
 ## Install Audio Support
 
 ```console
-pip install -e .[audio]
+pip install voice-synth
 ```
 
 Use this if you also want Kokoro:
 
 ```console
-pip install -e .[audio,kokoro]
+pip install "voice-synth[kokoro]"
 ```
 
 ## Configure Routes
@@ -132,7 +132,7 @@ Look for the Voicemeeter AUX input device with `virtual=True`.
 
 ## Smoke Test
 
-Run these snippets from Python after installing the audio extra.
+Run these snippets from Python after installing `voice-synth`.
 
 Route speech to the virtual mic:
 
@@ -179,10 +179,10 @@ tts.speak(
 
 `Audio playback requires the 'sounddevice' package`
 
-Install the audio extra:
+Reinstall the package with its base dependencies:
 
 ```console
-pip install -e .[audio]
+pip install --upgrade --force-reinstall voice-synth
 ```
 
 `No virtual cable output device was found`

@@ -16,7 +16,7 @@ A Python package for generating and routing synthesized voice lines. Supports ou
 ## Requirements
 
 - Python 3.11 or newer.
-- Optional audio playback support via `sounddevice`.
+- Audio playback support via `sounddevice`.
 - Optional provider dependencies and credentials depending on the backend you want to use.
 
 ## Installation
@@ -27,22 +27,16 @@ Install the package:
 pip install voice-synth
 ```
 
-Install audio playback support:
+Install with Kokoro support:
 
 ```bash
-pip install "voice-synth[audio]"
-```
-
-Install audio playback plus Kokoro support:
-
-```bash
-pip install "voice-synth[audio,kokoro]"
+pip install "voice-synth[kokoro]"
 ```
 
 For local development from a checkout:
 
 ```bash
-pip install -e ".[audio,kokoro]"
+pip install -e ".[kokoro]"
 ```
 
 ## Quick Start
@@ -181,7 +175,7 @@ from voice_synth import PlaybackHooks, TTSManager
 tts = TTSManager()
 
 tts.speak(
-    "Swing on contact.",
+    "Check out the playback hooks.",
     routes="mic",
     hooks=PlaybackHooks(
         on_audio_ready=lambda event: press_push_to_talk(),
@@ -201,7 +195,7 @@ tts.speak(
 Install the project locally:
 
 ```bash
-pip install -e ".[audio,kokoro]"
+pip install -e ".[kokoro]"
 ```
 
 Run tests:

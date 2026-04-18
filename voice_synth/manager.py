@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Iterable
 
 from voice_synth.phrase_cache import CacheKey, CacheLookupMode, PhraseCache, canonical_settings_json
@@ -67,7 +68,7 @@ class TTSManager:
     def __init__(
         self,
         *,
-        settings: Settings | None = None,
+        settings: Settings | str | Path | None = None,
         providers: dict[str, TTSProvider] | None = None,
     ) -> None:
         """Build a manager from settings and injectable provider adapters.
@@ -76,14 +77,29 @@ class TTSManager:
         that want to inject providers directly.
 
         Args:
-            settings: Optional complete configuration object. When omitted,
-                settings are loaded from the default config path and environment.
+            config: Optional complete configuration object or config file path.
+                This positional argument is a convenience for notebook and script
+                usage such as ``TTSManager("config.jsonc")``.
+            settings: Optional complete configuration object or config file path.
+                When omitted, settings are loaded from the default config path
+                and environment.
             providers: Optional provider registry keyed by provider name. When
                 omitted, providers are built from the configured provider
                 registry.
         """
-
-        self.settings = settings or load_settings()
+        settings_source = settings
+        if isinstance(settings_source, Settings):
+            self.settings = settings_source
+        elif isinstance(settings_source, (str, Path)):
+            self.settings = Settings.from_file(settings_source)
+        elif settings_source is None:
+            self.settings = load_settings()
+        else:
+            raise TypeError(
+                "settings must be a Settings instance, config path, or None; "
+                f"got {type(settings_source).__name__}."
+            )
+        
         self._providers = providers or build_registered_providers(self.settings)
         self._resolve_default_provider()
         self._playback_queue = PlaybackQueue()

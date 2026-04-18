@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 import sys
 import unittest
 from unittest.mock import patch
@@ -67,7 +68,10 @@ class KokoroProviderTests(unittest.TestCase):
         with patch("importlib.util.find_spec", return_value=None):
             with self.assertRaisesRegex(
                 DependencyError,
-                "Kokoro backend requires the optional 'kokoro' package.",
+                re.escape(
+                    "Kokoro backend requires the optional 'kokoro' package. "
+                    "Install it with 'pip install \"voice-synth[kokoro]\"'."
+                ),
             ):
                 provider._ensure_pipeline()
 

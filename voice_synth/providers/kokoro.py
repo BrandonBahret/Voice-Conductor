@@ -58,7 +58,10 @@ class KokoroProvider(TTSProvider):
         if self._pipeline is not None:
             return self._pipeline
         if not self._has_kokoro_package():
-            raise DependencyError("Kokoro backend requires the optional 'kokoro' package.")
+            raise DependencyError(
+                "Kokoro backend requires the optional 'kokoro' package. "
+                "Install it with 'pip install \"voice-synth[kokoro]\"'."
+            )
         if not self._has_huggingface_token():
             raise ConfigurationError("Kokoro requires providers.kokoro.hf_token.")
 

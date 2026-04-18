@@ -52,7 +52,7 @@ def _load_sounddevice():
         import sounddevice as sd
     except ImportError as exc:
         raise DependencyError(
-            "Audio playback requires the 'sounddevice' package. Install it with 'pip install -e .[audio]'."
+            "Audio playback requires the 'sounddevice' package. Install it with 'pip install voice-synth'."
         ) from exc
     return sd
 
