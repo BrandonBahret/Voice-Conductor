@@ -29,7 +29,7 @@ from voice_conductor import (
 )
 from voice_conductor.providers import TTSProvider
 
-from song import song
+from song5 import song
 
 
 EXAMPLE_DIR = Path(__file__).resolve().parent
@@ -774,27 +774,18 @@ def main() -> None:
         runtime_dir = EXAMPLE_DIR / ".runtime"
         runtime_dir.mkdir(parents=True, exist_ok=True)
         
-        
-        
-        written_tracks = list(
-                map(
-                    write_track,
-                    repeat(manager),
-                    repeat(runtime_dir),
-                    song.keys(),
-                    song.values(),
-                )
-            )
-        
-            
+        written_tracks = []
 
-        tracks = [written.audio for written in written_tracks]
-        for written in written_tracks:
+        for instrument, score in song.items():
+            written = write_track(manager, runtime_dir, instrument, score)
+            written_tracks.append(written)            
+
             print(
                 f"Wrote {written.voice_name:8} track: {written.target} "
                 f"({written.audio.duration_seconds:.2f}s)"
             )
-
+            
+        tracks = [written.audio for written in written_tracks]
         merged = merge_tracks(tracks, text="\n".join(song.values()))
         merged_target = runtime_dir / "ascii-ensemble-song.wav"
         merged.copy_to(merged_target)
