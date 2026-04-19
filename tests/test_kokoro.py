@@ -14,8 +14,10 @@ from voice_conductor.providers.kokoro import KokoroProvider
 
 
 class KokoroProviderTests(unittest.TestCase):
-    def test_list_voices_can_be_called_without_instantiating_provider(self) -> None:
-        voices = KokoroProvider.list_voices()
+    def test_list_voices_returns_builtin_voices(self) -> None:
+        provider = KokoroProvider(settings_from_dict({}))
+
+        voices = provider.list_voices()
 
         self.assertEqual(voices[0].id, "af_heart")
         self.assertEqual(voices[0].provider, "kokoro")

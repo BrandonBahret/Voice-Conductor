@@ -8,7 +8,6 @@ It renders to a temporary WAV file and then normalizes that file into the common
 from __future__ import annotations
 
 from collections.abc import Callable
-from functools import lru_cache
 import json
 import math
 from pathlib import Path
@@ -85,19 +84,11 @@ class WindowsSpeechProvider(TTSProvider):
     def _run_powershell(self, script: str) -> str:
         return self._run_powershell_script(script)
 
-    def list_voices(self=None, settings: Settings | None = None) -> list[VoiceInfo]:
+    def list_voices(self) -> list[VoiceInfo]:
         """Return installed Windows speech voices via PowerShell."""
 
-        if isinstance(self, WindowsSpeechProvider):
-            output = self._list_voices_with_runner(self._run_powershell)
-        else:
-            output = WindowsSpeechProvider._cached_voice_list_output()
+        output = self._list_voices_with_runner(self._run_powershell)
         return WindowsSpeechProvider._parse_voice_list_output(output)
-
-    @staticmethod
-    @lru_cache(maxsize=1)
-    def _cached_voice_list_output() -> str:
-        return WindowsSpeechProvider._run_powershell_script(_LIST_VOICES_SCRIPT)
 
     @staticmethod
     def _list_voices_with_runner(runner: Callable[[str], str]) -> str:

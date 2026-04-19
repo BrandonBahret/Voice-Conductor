@@ -87,7 +87,7 @@ class KokoroProvider(TTSProvider):
         except Exception as exc:
             raise ProviderError(f"Failed to authenticate with Hugging Face: {exc}") from exc
 
-    def list_voices(self=None, settings: Settings | None = None) -> list[VoiceInfo]:
+    def list_voices(self) -> list[VoiceInfo]:
         """Return the curated built-in Kokoro voices known to this package."""
 
         return [

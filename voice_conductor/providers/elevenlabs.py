@@ -17,7 +17,7 @@ from voice_conductor.api_cache import ELEVENLABS_MODEL_LIST_TTL_SECONDS
 from voice_conductor.api_cache import ELEVENLABS_VOICE_LIST_TTL_SECONDS
 from voice_conductor.config import Settings
 from voice_conductor.exceptions import ConfigurationError, ProviderError
-from voice_conductor.providers.base import TTSProvider, settings_from_provider_or_arg
+from voice_conductor.providers.base import TTSProvider
 from voice_conductor.types import SynthesizedAudio, VoiceInfo
 from voice_conductor.voice_keys import normalize_voice_key
 
@@ -111,18 +111,13 @@ class ElevenLabsProvider(TTSProvider):
     def _cache_key(self, base_key: str) -> str:
         return build_scoped_cache_key(base_key, self._provider_settings.api_key)
 
-    def list_voices(self=None, settings: Settings | None = None) -> list[VoiceInfo]:
+    def list_voices(self) -> list[VoiceInfo]:
         """Return account voices, using the provider metadata cache."""
 
-        provider = (
-            self
-            if isinstance(self, ElevenLabsProvider) and settings is None
-            else ElevenLabsProvider(settings_from_provider_or_arg(self, settings))
-        )
-        payload = provider._api_cache.get_or_fetch(
-            provider._cache_key("voices:list"),
-            provider._fetch_voices_payload,
-            ttl_seconds=provider._api_cache_ttl(ELEVENLABS_VOICE_LIST_TTL_SECONDS),
+        payload = self._api_cache.get_or_fetch(
+            self._cache_key("voices:list"),
+            self._fetch_voices_payload,
+            ttl_seconds=self._api_cache_ttl(ELEVENLABS_VOICE_LIST_TTL_SECONDS),
         )
         return [
             VoiceInfo(

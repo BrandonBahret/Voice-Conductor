@@ -83,21 +83,6 @@ class ProviderAPICacheTests(unittest.TestCase):
         self.assertEqual(len(second), 1)
         self.assertEqual(mock_urlopen.call_count, 1)
 
-    def test_elevenlabs_voice_list_can_be_called_without_instantiating_provider(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            settings = _settings(cache_dir=temp_dir, elevenlabs={"api_key": "test-key"})
-            payload = {
-                "voices": [
-                    {"voice_id": "voice-1", "name": "Rachel", "category": "generated"}
-                ]
-            }
-            with patch("voice_conductor.providers.elevenlabs.request.urlopen") as mock_urlopen:
-                mock_urlopen.return_value = _FakeHTTPResponse(payload)
-                voices = ElevenLabsProvider.list_voices(settings)
-
-        self.assertEqual(voices[0].id, "voice-1")
-        self.assertEqual(voices[0].provider, "elevenlabs")
-
     def test_azure_voice_list_uses_disk_cache_across_instances(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             settings = _settings(
@@ -123,28 +108,6 @@ class ProviderAPICacheTests(unittest.TestCase):
         self.assertEqual(first[0].language, "en-US")
         self.assertEqual(len(second), 1)
         self.assertEqual(mock_urlopen.call_count, 1)
-
-    def test_azure_voice_list_can_be_called_without_instantiating_provider(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            settings = _settings(
-                cache_dir=temp_dir,
-                azure={"speech_key": "test-key", "region": "westus"},
-            )
-            payload = [
-                {
-                    "ShortName": "en-US-AvaNeural",
-                    "DisplayName": "Ava",
-                    "Locale": "en-US",
-                    "Gender": "Female",
-                    "LocalName": "Ava",
-                }
-            ]
-            with patch("voice_conductor.providers.azure.request.urlopen") as mock_urlopen:
-                mock_urlopen.return_value = _FakeHTTPResponse(payload)
-                voices = AzureSpeechProvider.list_voices(settings)
-
-        self.assertEqual(voices[0].id, "en-US-AvaNeural")
-        self.assertEqual(voices[0].provider, "azure")
 
     def test_elevenlabs_voice_cache_is_scoped_per_api_key(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

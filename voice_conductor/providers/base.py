@@ -11,33 +11,10 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any, TypeVar
 
-from voice_conductor.config import Settings, load_settings
 from voice_conductor.types import SynthesizedAudio, VoiceInfo
 from voice_conductor.voice_keys import normalize_voice_key
 
 _ProviderT = TypeVar("_ProviderT", bound="TTSProvider")
-
-
-def settings_from_provider_or_arg(
-    provider_or_settings: Any | None = None,
-    settings: Settings | None = None,
-) -> Settings:
-    """Resolve settings for provider methods that also support class calls.
-
-    Built-in metadata helpers use this to accept either an initialized provider
-    instance or an explicit ``Settings`` object. New providers usually only need
-    to keep the ``Settings`` object passed to ``__init__`` and read their own
-    typed config via ``settings.provider_settings(<provider-name>)``.
-    """
-
-    if settings is not None:
-        return settings
-    if isinstance(provider_or_settings, Settings):
-        return provider_or_settings
-    provider_settings = getattr(provider_or_settings, "settings", None)
-    if isinstance(provider_settings, Settings):
-        return provider_settings
-    return load_settings()
 
 
 class TTSProvider(ABC):
@@ -144,9 +121,9 @@ class TTSProvider(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def list_voices(self, settings: Settings | None = None) -> list[VoiceInfo]:
+    def list_voices(self) -> list[VoiceInfo]:
         """Return the voices currently exposed by the provider.
-        
+
         @dataclass(slots=True)
         class VoiceInfo:
             id: str

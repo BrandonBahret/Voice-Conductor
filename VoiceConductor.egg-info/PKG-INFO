@@ -1,14 +1,13 @@
 Metadata-Version: 2.4
 Name: VoiceConductor
-Version: 0.1.1
-Summary: Importable text-to-speech package with Windows audio routing support.
+Version: 0.1.2
+Summary: Text-to-speech package with Windows audio routing support.
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 Requires-Dist: msgpack>=1.0.7
 Requires-Dist: numpy>=1.26
 Requires-Dist: pypercache>=0.1.4
 Requires-Dist: sounddevice>=0.4.6
-Provides-Extra: elevenlabs
 Provides-Extra: kokoro
 Requires-Dist: kokoro>=0.9.4; extra == "kokoro"
 

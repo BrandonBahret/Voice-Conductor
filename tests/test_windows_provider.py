@@ -85,28 +85,6 @@ class WindowsSpeechProviderTests(unittest.TestCase):
         self.assertEqual(voices[0].metadata["description"], "English voice")
         self.assertTrue(voices[0].metadata["enabled"])
 
-    def test_list_voices_can_be_called_without_instantiating_provider(self) -> None:
-        from unittest.mock import patch
-
-        payload = (
-            '[{"name":"Microsoft Zira Desktop","culture":"en-US",'
-            '"description":"English voice","enabled":true}]'
-        )
-
-        with patch.object(
-            WindowsSpeechProvider,
-            "_run_powershell_script",
-            return_value=payload,
-        ) as mock_run:
-            WindowsSpeechProvider._cached_voice_list_output.cache_clear()
-            try:
-                voices = WindowsSpeechProvider.list_voices()
-            finally:
-                WindowsSpeechProvider._cached_voice_list_output.cache_clear()
-
-        self.assertEqual(voices[0].name, "Microsoft Zira Desktop")
-        mock_run.assert_called_once()
-
     def test_cache_settings_tracks_windows_specific_settings(self) -> None:
         provider = RecordingWindowsSpeechProvider(
             _settings(

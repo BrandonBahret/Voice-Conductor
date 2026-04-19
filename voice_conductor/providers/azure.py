@@ -18,7 +18,7 @@ from voice_conductor.api_cache import build_scoped_cache_key
 from voice_conductor.api_cache import AZURE_VOICE_LIST_TTL_SECONDS
 from voice_conductor.config import Settings
 from voice_conductor.exceptions import ConfigurationError, ProviderError
-from voice_conductor.providers.base import TTSProvider, settings_from_provider_or_arg
+from voice_conductor.providers.base import TTSProvider
 from voice_conductor.types import SynthesizedAudio, VoiceInfo
 
 
@@ -135,18 +135,13 @@ class AzureSpeechProvider(TTSProvider):
             },
         )
 
-    def list_voices(self=None, settings: Settings | None = None) -> list[VoiceInfo]:
+    def list_voices(self) -> list[VoiceInfo]:
         """Return Azure voices for the configured region, using metadata cache."""
 
-        provider = (
-            self
-            if isinstance(self, AzureSpeechProvider) and settings is None
-            else AzureSpeechProvider(settings_from_provider_or_arg(self, settings))
-        )
-        payload = provider._api_cache.get_or_fetch(
-            provider._cache_key("voices:list"),
-            provider._fetch_voices_payload,
-            ttl_seconds=provider._api_cache_ttl(AZURE_VOICE_LIST_TTL_SECONDS),
+        payload = self._api_cache.get_or_fetch(
+            self._cache_key("voices:list"),
+            self._fetch_voices_payload,
+            ttl_seconds=self._api_cache_ttl(AZURE_VOICE_LIST_TTL_SECONDS),
         )
         return [
             VoiceInfo(

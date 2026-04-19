@@ -3,7 +3,5 @@ numpy>=1.26
 pypercache>=0.1.4
 sounddevice>=0.4.6
 
-[elevenlabs]
-
 [kokoro]
 kokoro>=0.9.4
